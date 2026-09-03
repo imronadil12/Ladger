@@ -3,7 +3,7 @@ import type { Role } from '../types';
 export type ChartTemplate = 'bbs' | 'sfc';
 
 export const MIN_ROLE_WIDTH = 240;
-export const STAFF_LINE_SPACE = 26;
+export const STAFF_LINE_SPACE = 56;
 
 type StaffBoxMetrics = {
   width: number;
