@@ -8,15 +8,15 @@ const now = '2026-09-03T00:00:00.000Z';
 export const DEFAULT_LAYOUT_SETTINGS: Record<'bbs' | 'sfc', ChartLayoutSettings> = {
   bbs: {
     horizontalGap: 24,
-    verticalGap: 55,
-    staffGap: 17,
-    titleFontSize: 13.5,
+    verticalGap: 48,
+    staffGap: 16,
+    titleFontSize: 16,
   },
   sfc: {
-    horizontalGap: 18,
-    verticalGap: 55,
-    staffGap: 15,
-    titleFontSize: 13.5,
+    horizontalGap: 24,
+    verticalGap: 48,
+    staffGap: 16,
+    titleFontSize: 16,
   },
 };
 

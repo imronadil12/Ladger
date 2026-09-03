@@ -16,7 +16,14 @@ const message = (error: unknown) => error instanceof Error ? error.message : 'So
 const normalizeLibrary = (library: Library): Library => ({
   ...library,
   charts: library.charts.map((chart) => {
-    const layout = chart.layout ?? clone(DEFAULT_LAYOUT_SETTINGS[chart.templateId]);
+    const defaultLayout = DEFAULT_LAYOUT_SETTINGS[chart.templateId];
+    const layout = {
+      ...defaultLayout,
+      ...(chart.layout ?? {}),
+      ...(chart.layout?.titleFontSize === 13.5 ? { titleFontSize: defaultLayout.titleFontSize } : {}),
+      ...(chart.layout?.verticalGap === 55 ? { verticalGap: defaultLayout.verticalGap } : {}),
+      ...(chart.layout?.staffGap === 17 || chart.layout?.staffGap === 15 ? { staffGap: defaultLayout.staffGap } : {}),
+    };
     return autoLayout({ ...chart, layout });
   }),
 });

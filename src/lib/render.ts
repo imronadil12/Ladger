@@ -145,12 +145,12 @@ function renderConnections(chart: Chart, company: Company): string {
   return `<g class="chart-connectors" fill="none" stroke="${escape(company.branding.border)}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">${[...groups.values()].map((group) => pathForGroup(group.parents, group.targets, 'chart-arrow')).join('')}</g>`;
 }
 
-function roleText(role: Role, text: string, baseFontSize = 13.5): string {
+function roleText(role: Role, text: string, baseFontSize = 16): string {
   const { lines, fontSize, lineHeight, firstBaseline } = computeRoleTextFit({ ...role, title: text }, baseFontSize);
   return `<text x="${centerX(role)}" y="${firstBaseline}" text-anchor="middle" dominant-baseline="alphabetic" font-family="Gotham, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${lines.map((line, index) => `<tspan x="${centerX(role)}" dy="${index ? lineHeight : 0}">${escape(line)}</tspan>`).join('')}</text>`;
 }
 
-function renderRole(role: Role, company: Company, baseFontSize = 13.5): string {
+function renderRole(role: Role, company: Company, baseFontSize = 16): string {
   const { primary, accent, border, text } = company.branding;
   const radius = role.kind === 'staff' ? 7 : role.kind === 'ceo' ? 6 : 10;
   const clipId = `clip-role-${escape(role.id)}`;
@@ -189,7 +189,7 @@ function renderFooter(chart: Chart, company: Company): string {
 export function renderChartSvg(chart: Chart, company: Company): string {
   const { width, height } = chart.page;
   const titleX = width - 62;
-  const baseFontSize = chart.layout?.titleFontSize ?? 13.5;
+  const baseFontSize = chart.layout?.titleFontSize ?? 16;
   const sfcArt = chart.templateId === 'sfc' ? `<image href="/assets/sfc-artwork.svg" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>` : renderBbsLogo(company);
   return `<svg id="chart-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-labelledby="chart-title chart-description">
     <title id="chart-title">${escape(chart.name)}</title><desc id="chart-description">Organizational chart for ${escape(company.name)}</desc>

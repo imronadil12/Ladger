@@ -284,7 +284,7 @@ function LayoutInspector({ chart, actions }: { chart: Chart; actions: WorkspaceA
       <div className="section-title"><span>Typography</span><small>All positions</small></div>
       <RangeControl
         label="Title Font Size"
-        value={layout.titleFontSize ?? 13.5}
+        value={layout.titleFontSize ?? 16}
         min={9}
         max={20}
         step={0.5}

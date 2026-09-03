@@ -85,7 +85,7 @@ export interface RoleTextFit {
 
 export function computeRoleTextFit(
   role: Role,
-  baseFontSize = 13.5,
+  baseFontSize = 16,
   hPadding = 14,
   vPadding = 8,
 ): RoleTextFit {
@@ -124,14 +124,14 @@ export function staffBoxMetrics(templateId: ChartTemplate): StaffBoxMetrics {
   return STAFF_BOX_METRICS[templateId];
 }
 
-export function roleTextLines(role: Role, baseFontSize = 13.5): string[] {
+export function roleTextLines(role: Role, baseFontSize = 16): string[] {
   return computeRoleTextFit(role, baseFontSize).lines;
 }
 
 export const CONTAINER_H_PADDING = 14;
 export const CONTAINER_V_PADDING = 16.3;
 
-export function roleBoxHeight(role: Role, baseFontSize = 13.5): number {
+export function roleBoxHeight(role: Role, baseFontSize = 16): number {
   const maxW = Math.max(20, role.width - CONTAINER_H_PADDING * 2);
   const lines = getRoleLines(role, maxW, baseFontSize);
   const band = (role.kind === 'executive' || role.kind === 'commissioner') ? 8 : 0;
@@ -140,6 +140,6 @@ export function roleBoxHeight(role: Role, baseFontSize = 13.5): number {
   return 42 + (lines.length - 1) * 16 + band;
 }
 
-export function staffBoxHeight(role: Role, _templateId?: ChartTemplate, baseFontSize = 13.5): number {
+export function staffBoxHeight(role: Role, _templateId?: ChartTemplate, baseFontSize = 16): number {
   return roleBoxHeight(role, baseFontSize);
 }
