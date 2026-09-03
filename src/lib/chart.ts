@@ -332,6 +332,24 @@ export function autoLayout(chart: Chart): Chart {
   for (const role of next.roles) {
     if (role.kind !== 'staff' && role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
   }
+
+  if (next.roles.length > 0) {
+    const minY = Math.min(...next.roles.map((role) => role.y));
+    const maxY = Math.max(...next.roles.map((role) => role.y + role.height));
+    const span = maxY - minY;
+    const idealTop = (next.page.height - span) / 2;
+    const footerMargin = 60;
+    const maxAllowedTop = next.page.height - footerMargin - span;
+    const minAllowedTop = 32;
+    const targetTop = Math.max(minAllowedTop, Math.min(maxAllowedTop, idealTop));
+    const deltaY = targetTop - minY;
+    if (Math.abs(deltaY) > 0.01) {
+      for (const role of next.roles) {
+        role.y += deltaY;
+      }
+    }
+  }
+
   next.updatedAt = new Date().toISOString();
   return next;
 }
