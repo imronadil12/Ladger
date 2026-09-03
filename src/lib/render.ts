@@ -60,7 +60,7 @@ function pathForGroup(parents: Role[], targets: Role[], marker: string): string 
     for (const target of sortedTargets) {
       const y = target.y + target.height / 2;
       paths.push(connector([
-        { x: trunkX, y: bottom(source) },
+        { x: trunkX, y: bottom(source) + 8 },
         { x: trunkX, y },
         { x: target.x - 6, y },
       ], marker));
