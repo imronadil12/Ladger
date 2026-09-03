@@ -6,7 +6,6 @@ const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
 const outgoing = (chart: Chart, roleId: string) => chart.connections.filter((connection) => connection.sourceId === roleId);
 const incoming = (chart: Chart, roleId: string) => chart.connections.filter((connection) => connection.targetId === roleId);
-const STAFF_TOP_GAP = 30;
 const STAFF_GAP = 15;
 
 const roleById = (chart: Chart, roleId: string) => chart.roles.find((role) => role.id === roleId);
@@ -22,13 +21,13 @@ function stackStaffReports(chart: Chart, parentId: string): void {
     .sort((a, b) => a.order - b.order || a.y - b.y);
   if (!reports.length) return;
 
-  const staffTopGap = chart.layout?.staffTopGap ?? STAFF_TOP_GAP;
+  const verticalGap = chart.layout?.verticalGap ?? 55;
   const staffGap = chart.layout?.staffGap ?? STAFF_GAP;
 
   const footerTop = chart.page.height - 96;
   const totalHeight = reports.reduce((sum, role) => sum + role.height, 0);
   const spacingRoom = Math.max(0, footerTop - (parent.y + parent.height) - totalHeight);
-  const topGap = Math.min(staffTopGap, Math.max(6, spacingRoom * 0.42));
+  const topGap = Math.min(verticalGap, Math.max(6, spacingRoom * 0.42));
   const gap = reports.length > 1
     ? Math.min(staffGap, Math.max(4, (spacingRoom - topGap) / (reports.length - 1)))
     : 0;
@@ -212,7 +211,6 @@ export function autoLayout(chart: Chart): Chart {
   const roleGap = chart.layout?.horizontalGap ?? 18;
   const groupGap = Math.max(roleGap + 8, Math.round(roleGap * 1.6));
   const staffGap = chart.layout?.staffGap ?? STAFF_GAP;
-  const staffTopGap = chart.layout?.staffTopGap ?? STAFF_TOP_GAP;
   const configuredVerticalGap = chart.layout?.verticalGap ?? 55;
 
   const footprintCache = new Map<string, number>();
@@ -235,7 +233,7 @@ export function autoLayout(chart: Chart): Chart {
   const maximumStaffStack = Math.max(0, ...next.roles.map((parent) => {
     const reports = reportsFor(next, parent.id).filter((role) => stackedStaffIds.has(role.id));
     return reports.length
-      ? staffTopGap + reports.reduce((sum, role) => sum + role.height, 0) + staffGap * (reports.length - 1)
+      ? configuredVerticalGap + reports.reduce((sum, role) => sum + role.height, 0) + staffGap * (reports.length - 1)
       : 0;
   }));
   const firstY = 66;

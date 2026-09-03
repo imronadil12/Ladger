@@ -264,15 +264,6 @@ function LayoutInspector({ chart, actions }: { chart: Chart; actions: WorkspaceA
         suffix="pt"
         onChange={(val) => actions.updateLayout({ staffGap: val })}
       />
-      <RangeControl
-        label="Staff Top Gap"
-        value={layout.staffTopGap}
-        min={15}
-        max={60}
-        step={1}
-        suffix="pt"
-        onChange={(val) => actions.updateLayout({ staffTopGap: val })}
-      />
     </section>
     <section className="inspector-section">
       <div className="section-title"><span>Layout Actions</span><Sliders size={15} /></div>
