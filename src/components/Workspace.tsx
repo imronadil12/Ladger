@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
-  AlignHorizontalSpaceAround, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Building2, Check, ChevronDown,
+  AlignHorizontalSpaceAround, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Building2, Check, ChevronDown, ChevronRight, ChevronsUpDown,
   Download, FileArchive, FileImage, FilePlus2, ImagePlus, LayoutTemplate, MoreHorizontal, Plus,
-  Redo2, RotateCcw, Save, Settings2, Sliders, Trash2, Undo2, Upload, Users, ZoomIn, ZoomOut,
+  Redo2, RotateCcw, Save, Search, Settings2, Sliders, Trash2, Undo2, Upload, Users, X, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import type { Branding, Chart, Company, Library, Role, RoleKind, WorkspaceActions } from '../types';
 import { DEFAULT_LAYOUT_SETTINGS } from '../data/seeds';
@@ -53,20 +53,6 @@ function IconButton({ label, children, disabled, onClick, active }: { label: str
   return <button className={`icon-button${active ? ' is-active' : ''}`} type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{children}</button>;
 }
 
-function roleDepths(chart: Chart) {
-  const parents = new Map<string, string[]>();
-  chart.connections.forEach((connection) => parents.set(connection.targetId, [...(parents.get(connection.targetId) ?? []), connection.sourceId]));
-  const memo = new Map<string, number>();
-  const get = (id: string, trail = new Set<string>()): number => {
-    if (memo.has(id)) return memo.get(id)!;
-    if (trail.has(id)) return 0;
-    const list = parents.get(id) ?? [];
-    const depth = list.length ? Math.min(...list.map((parent) => get(parent, new Set([...trail, id])))) + 1 : 0;
-    memo.set(id, depth); return depth;
-  };
-  chart.roles.forEach((role) => get(role.id));
-  return memo;
-}
 
 function NewChartDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (template: 'bbs' | 'sfc', name: string) => void }) {
   const [template, setTemplate] = useState<'bbs' | 'sfc'>('bbs');
@@ -85,25 +71,286 @@ function NewChartDialog({ onClose, onCreate }: { onClose: () => void; onCreate: 
   </div>;
 }
 
+interface TreeNode {
+  role: Role;
+  depth: number;
+  childCount: number;
+  hasChildren: boolean;
+  isCollapsed: boolean;
+}
+
 function LibraryPanel({ library, chart, selectedRoleId, onSelectRole, actions }: Pick<WorkspaceProps, 'library' | 'chart' | 'selectedRoleId' | 'onSelectRole' | 'actions'>) {
-  const depths = useMemo(() => roleDepths(chart), [chart]);
-  const roles = useMemo(() => [...chart.roles].sort((a, b) => (depths.get(a.id) ?? 0) - (depths.get(b.id) ?? 0) || a.order - b.order || a.x - b.x), [chart.roles, depths]);
   const [menu, setMenu] = useState(false);
-  return <aside className="library-panel">
-    <div className="brand-mark"><span>OC</span><div><strong>Org Chart</strong><small>Studio</small></div></div>
-    <div className="library-heading"><span>Charts</span><button type="button" onClick={() => document.dispatchEvent(new CustomEvent('open-new-chart'))} aria-label="New chart"><Plus size={16} /></button></div>
-    <div className="chart-picker">
-      <button type="button" className="chart-picker-button" onClick={() => setMenu((value) => !value)} aria-expanded={menu}><span className={`company-dot ${chart.templateId}`} /> <span><strong>{chart.name}</strong><small>{chart.roles.length} positions</small></span><ChevronDown size={15} /></button>
-      {menu ? <div className="chart-menu">{library.charts.map((item) => <button type="button" key={item.id} className={item.id === chart.id ? 'active' : ''} onClick={() => { actions.selectChart(item.id); setMenu(false); }}><span className={`company-dot ${item.templateId}`} /><span>{item.name}</span>{item.id === chart.id ? <Check size={14} /> : null}</button>)}</div> : null}
-    </div>
-    <div className="chart-actions"><button type="button" onClick={actions.duplicateChart}><FilePlus2 size={14} /> Duplicate</button><button type="button" onClick={() => { const name = window.prompt('Chart name', chart.name); if (name?.trim()) actions.renameChart(name.trim()); }}><Settings2 size={14} /> Rename</button></div>
-    <div className="outline-heading"><span>Hierarchy</span><button type="button" title="Add top-level position" onClick={() => actions.addRole()}><Plus size={15} /></button></div>
-    <div className="role-list" role="tree" aria-label="Positions">{roles.map((role) => {
-      const depth = depths.get(role.id) ?? 0;
-      return <button type="button" role="treeitem" aria-selected={selectedRoleId === role.id} key={role.id} className={`role-row${selectedRoleId === role.id ? ' selected' : ''}`} style={{ '--depth': depth } as React.CSSProperties} onClick={() => onSelectRole(role.id)}><span className={`role-kind ${role.kind}`} /><span>{role.title}</span></button>;
-    })}</div>
-    <div className="library-footer"><span className="local-pill"><Save size={13} /> Saved on this Mac</span></div>
-  </aside>;
+  const [filter, setFilter] = useState('');
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
+
+  // Parent and children relationship maps
+  const { childrenMap, roots } = useMemo(() => {
+    const roleMap = new Map(chart.roles.map((r) => [r.id, r]));
+    const children = new Map<string, string[]>();
+    const parents = new Map<string, string[]>();
+
+    for (const c of chart.connections) {
+      children.set(c.sourceId, [...(children.get(c.sourceId) ?? []), c.targetId]);
+      parents.set(c.targetId, [...(parents.get(c.targetId) ?? []), c.sourceId]);
+    }
+
+    for (const [, childIds] of children) {
+      childIds.sort((a, b) => {
+        const ra = roleMap.get(a);
+        const rb = roleMap.get(b);
+        if (!ra || !rb) return 0;
+        return ra.order - rb.order || ra.x - rb.x;
+      });
+    }
+
+    const rts = chart.roles
+      .filter((r) => !parents.has(r.id) || parents.get(r.id)!.length === 0)
+      .sort((a, b) => a.order - b.order || a.x - b.x);
+
+    return { childrenMap: children, roots: rts };
+  }, [chart.connections, chart.roles]);
+
+  // Hierarchical flattened tree supporting collapsing and search filtering
+  const tree = useMemo<TreeNode[]>(() => {
+    const roleMap = new Map(chart.roles.map((r) => [r.id, r]));
+    const parentMap = new Map<string, string[]>();
+    for (const c of chart.connections) {
+      parentMap.set(c.targetId, [...(parentMap.get(c.targetId) ?? []), c.sourceId]);
+    }
+
+    const query = filter.trim().toLowerCase();
+    const matchingIds = new Set<string>();
+    const ancestorIds = new Set<string>();
+
+    if (query) {
+      for (const r of chart.roles) {
+        if (r.title.toLowerCase().includes(query) || r.kind.toLowerCase().includes(query)) {
+          matchingIds.add(r.id);
+          const queue = [...(parentMap.get(r.id) ?? [])];
+          while (queue.length) {
+            const pid = queue.shift()!;
+            if (!ancestorIds.has(pid)) {
+              ancestorIds.add(pid);
+              queue.push(...(parentMap.get(pid) ?? []));
+            }
+          }
+        }
+      }
+    }
+
+    const reachable = new Set<string>();
+    const markReachable = (id: string) => {
+      if (reachable.has(id)) return;
+      reachable.add(id);
+      for (const cid of childrenMap.get(id) ?? []) markReachable(cid);
+    };
+    for (const root of roots) markReachable(root.id);
+
+    const flat: TreeNode[] = [];
+    const visited = new Set<string>();
+
+    const traverse = (roleId: string, depth: number) => {
+      if (visited.has(roleId)) return;
+      visited.add(roleId);
+      const role = roleMap.get(roleId);
+      if (!role) return;
+
+      if (query && !matchingIds.has(role.id) && !ancestorIds.has(role.id)) {
+        return;
+      }
+
+      const childIds = childrenMap.get(roleId) ?? [];
+      const isCollapsed = query ? false : collapsedIds.has(role.id);
+
+      flat.push({
+        role,
+        depth,
+        childCount: childIds.length,
+        hasChildren: childIds.length > 0,
+        isCollapsed,
+      });
+
+      if (!isCollapsed) {
+        for (const cid of childIds) {
+          traverse(cid, depth + 1);
+        }
+      }
+    };
+
+    for (const root of roots) {
+      traverse(root.id, 0);
+    }
+    for (const role of chart.roles) {
+      if (!reachable.has(role.id)) {
+        traverse(role.id, 0);
+      }
+    }
+
+    return flat;
+  }, [chart.connections, chart.roles, childrenMap, collapsedIds, filter, roots]);
+
+  const toggleCollapse = useCallback((roleId: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roleId)) next.delete(roleId);
+      else next.add(roleId);
+      return next;
+    });
+  }, []);
+
+  const toggleAllCollapse = useCallback(() => {
+    if (collapsedIds.size > 0) {
+      setCollapsedIds(new Set());
+    } else {
+      const allParentIds = new Set<string>();
+      for (const [parentId, children] of childrenMap) {
+        if (children.length > 0) allParentIds.add(parentId);
+      }
+      setCollapsedIds(allParentIds);
+    }
+  }, [childrenMap, collapsedIds.size]);
+
+  return (
+    <aside className="library-panel">
+      <div className="brand-mark">
+        <span>OC</span>
+        <div><strong>Org Chart</strong><small>Studio</small></div>
+      </div>
+
+      <div className="library-heading">
+        <span>Charts</span>
+        <button type="button" onClick={() => document.dispatchEvent(new CustomEvent('open-new-chart'))} aria-label="New chart">
+          <Plus size={16} />
+        </button>
+      </div>
+
+      <div className="chart-picker">
+        <button type="button" className="chart-picker-button" onClick={() => setMenu((v) => !v)} aria-expanded={menu}>
+          <span className={`company-dot ${chart.templateId}`} />
+          <span>
+            <strong>{chart.name}</strong>
+            <small>{chart.roles.length} positions</small>
+          </span>
+          <ChevronDown size={15} />
+        </button>
+        {menu ? (
+          <div className="chart-menu">
+            {library.charts.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={item.id === chart.id ? 'active' : ''}
+                onClick={() => { actions.selectChart(item.id); setMenu(false); }}
+              >
+                <span className={`company-dot ${item.templateId}`} />
+                <span>{item.name}</span>
+                {item.id === chart.id ? <Check size={14} /> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="chart-actions">
+        <button type="button" onClick={actions.duplicateChart}><FilePlus2 size={14} /> Duplicate</button>
+        <button type="button" onClick={() => { const name = window.prompt('Chart name', chart.name); if (name?.trim()) actions.renameChart(name.trim()); }}>
+          <Settings2 size={14} /> Rename
+        </button>
+      </div>
+
+      <div className="outline-heading">
+        <div className="outline-heading-left">
+          <span>Hierarchy</span>
+          <span className="outline-count" title={`${chart.roles.length} total positions`}>{chart.roles.length}</span>
+        </div>
+        <div className="outline-heading-actions">
+          <button
+            type="button"
+            title={collapsedIds.size > 0 ? 'Expand all branches' : 'Collapse all branches'}
+            onClick={toggleAllCollapse}
+          >
+            <ChevronsUpDown size={14} />
+          </button>
+          <button type="button" title="Add top-level position" onClick={() => actions.addRole()}>
+            <Plus size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div className="hierarchy-search">
+        <Search size={12} className="hierarchy-search-icon" />
+        <input
+          type="text"
+          placeholder="Filter positions…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        {filter ? (
+          <button type="button" className="hierarchy-search-clear" onClick={() => setFilter('')} title="Clear filter">
+            <X size={11} />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="role-list" role="tree" aria-label="Positions">
+        {tree.length === 0 ? (
+          <div className="tree-empty">No positions match “{filter}”</div>
+        ) : (
+          tree.map(({ role, depth, childCount, hasChildren, isCollapsed }) => {
+            const isSelected = selectedRoleId === role.id;
+            return (
+              <div
+                key={role.id}
+                role="treeitem"
+                aria-selected={isSelected}
+                aria-expanded={hasChildren ? !isCollapsed : undefined}
+                className={`role-tree-item${isSelected ? ' selected' : ''}`}
+                style={{ '--depth': depth } as React.CSSProperties}
+                onClick={() => onSelectRole(role.id)}
+              >
+                {hasChildren ? (
+                  <button
+                    type="button"
+                    className="tree-toggle"
+                    title={isCollapsed ? 'Expand' : 'Collapse'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCollapse(role.id);
+                    }}
+                  >
+                    {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                ) : (
+                  <span className="tree-spacer" />
+                )}
+                <span className={`role-kind ${role.kind}`} title={`Style: ${role.kind}`} />
+                <span className="role-tree-title" title={role.title}>{role.title}</span>
+                {hasChildren ? (
+                  <span className="report-count" title={`${childCount} reports`}>{childCount}</span>
+                ) : null}
+                <button
+                  type="button"
+                  className="tree-add-btn"
+                  title={`Add report to ${role.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    actions.addRole(role.id);
+                  }}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="library-footer">
+        <span className="local-pill"><Save size={13} /> Saved on this Mac</span>
+      </div>
+    </aside>
+  );
 }
 
 function TopBar({ chart, actions, canUndo, canRedo, saveStatus, exporting }: Pick<WorkspaceProps, 'chart' | 'actions' | 'canUndo' | 'canRedo' | 'saveStatus' | 'exporting'>) {
