@@ -3,7 +3,12 @@ import type { Role } from '../types';
 export type ChartTemplate = 'bbs' | 'sfc';
 
 export const MIN_ROLE_WIDTH = 240;
-export const STAFF_LINE_SPACE = 56;
+export const STAFF_TRUNK_OFFSET = 12;
+export const STAFF_ARROW_LENGTH = 24;
+export const STAFF_LEFT_OFFSET = STAFF_TRUNK_OFFSET + STAFF_ARROW_LENGTH; // 36
+export const STAFF_RIGHT_MARGIN = 24;
+export const STAFF_TOTAL_INDENT = STAFF_LEFT_OFFSET + STAFF_RIGHT_MARGIN; // 60
+export const STAFF_LINE_SPACE = STAFF_TOTAL_INDENT;
 
 type StaffBoxMetrics = {
   width: number;
@@ -12,8 +17,8 @@ type StaffBoxMetrics = {
 };
 
 const STAFF_BOX_METRICS: Record<ChartTemplate, StaffBoxMetrics> = {
-  bbs: { width: MIN_ROLE_WIDTH - STAFF_LINE_SPACE, oneLineHeight: 42, twoLineHeight: 52 },
-  sfc: { width: MIN_ROLE_WIDTH - STAFF_LINE_SPACE, oneLineHeight: 29.933, twoLineHeight: 59.865 },
+  bbs: { width: MIN_ROLE_WIDTH - STAFF_TOTAL_INDENT, oneLineHeight: 42, twoLineHeight: 52 },
+  sfc: { width: MIN_ROLE_WIDTH - STAFF_TOTAL_INDENT, oneLineHeight: 29.933, twoLineHeight: 59.865 },
 };
 
 const cleanLines = (lines: string[]) => lines.map((line) => line.trim()).filter(Boolean);

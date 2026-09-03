@@ -1,5 +1,5 @@
 import type { Chart, Role } from '../types';
-import { MIN_ROLE_WIDTH, STAFF_LINE_SPACE, staffBoxHeight, staffBoxMetrics } from './role-layout';
+import { MIN_ROLE_WIDTH, STAFF_LEFT_OFFSET, STAFF_TOTAL_INDENT, staffBoxHeight, staffBoxMetrics } from './role-layout';
 
 const copy = (chart: Chart): Chart => structuredClone(chart);
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -33,11 +33,11 @@ function stackStaffReports(chart: Chart, parentId: string): void {
     : 0;
   let y = parent.y + parent.height + topGap;
 
-  const maxStaffWidth = parent.width - STAFF_LINE_SPACE;
+  const maxStaffWidth = parent.width - STAFF_TOTAL_INDENT;
 
   reports.forEach((role, index) => {
     role.width = maxStaffWidth;
-    role.x = Math.min(chart.page.width - role.width - 30, Math.max(30, parent.x + STAFF_LINE_SPACE));
+    role.x = Math.min(chart.page.width - role.width - 30, Math.max(30, parent.x + STAFF_LEFT_OFFSET));
     role.y = y;
     role.order = index;
     y += role.height + gap;
@@ -51,10 +51,10 @@ function normalizeStaffGeometry(chart: Chart): void {
     const parentId = incoming(chart, role.id)[0]?.sourceId;
     const parent = parentId ? roleById(chart, parentId) : null;
     const managerWidth = parent ? parent.width : MIN_ROLE_WIDTH;
-    const maxStaffWidth = managerWidth - STAFF_LINE_SPACE;
+    const maxStaffWidth = managerWidth - STAFF_TOTAL_INDENT;
     role.width = maxStaffWidth;
     if (parent) {
-      role.x = parent.x + STAFF_LINE_SPACE;
+      role.x = parent.x + STAFF_LEFT_OFFSET;
     }
     role.height = staffBoxHeight(role, chart.templateId, baseFontSize);
   }
@@ -128,10 +128,10 @@ export function addRole(chart: Chart, parentId?: string): Chart {
   const roleId = id('role');
   const staffMetrics = staffBoxMetrics(next.templateId);
   const parentWidth = parent ? parent.width : MIN_ROLE_WIDTH;
-  const newWidth = parent ? parentWidth - STAFF_LINE_SPACE : MIN_ROLE_WIDTH;
+  const newWidth = parent ? parentWidth - STAFF_TOTAL_INDENT : MIN_ROLE_WIDTH;
   const newRole: Role = {
     id: roleId, title: 'New Position', lines: ['New Position'], kind: 'staff', fontSize: next.layout?.titleFontSize ?? 13.5,
-    x: Math.min(next.page.width - newWidth - 30, Math.max(30, parent ? parent.x + STAFF_LINE_SPACE : next.page.width / 2 - newWidth / 2)),
+    x: Math.min(next.page.width - newWidth - 30, Math.max(30, parent ? parent.x + STAFF_LEFT_OFFSET : next.page.width / 2 - newWidth / 2)),
     y: Math.min(next.page.height - 100, (parent?.y ?? 90) + (parent?.height ?? 40) + 90),
     width: newWidth, height: staffMetrics.oneLineHeight, order: parentId ? outgoing(next, parentId).length : next.roles.length,
   };
