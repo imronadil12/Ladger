@@ -1,5 +1,5 @@
 import type { Chart, Role } from '../types';
-import { staffBoxHeight, staffBoxMetrics } from './role-layout';
+import { MIN_ROLE_WIDTH, staffBoxHeight, staffBoxMetrics } from './role-layout';
 
 const copy = (chart: Chart): Chart => structuredClone(chart);
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -35,7 +35,7 @@ function stackStaffReports(chart: Chart, parentId: string): void {
   let y = parent.y + parent.height + topGap;
 
   reports.forEach((role, index) => {
-    const inset = Math.max(24, (parent.width - role.width) / 2);
+    const inset = (parent.width - role.width) / 2;
     role.x = Math.min(chart.page.width - role.width - 30, Math.max(30, parent.x + inset));
     role.y = y;
     role.order = index;
@@ -49,7 +49,7 @@ function normalizeStaffGeometry(chart: Chart): void {
   for (const role of chart.roles) {
     if (role.kind !== 'staff') continue;
     const center = role.x + role.width / 2;
-    role.width = metrics.width;
+    role.width = Math.max(MIN_ROLE_WIDTH, metrics.width);
     role.x = center - role.width / 2;
     role.height = staffBoxHeight(role, chart.templateId, baseFontSize);
   }
@@ -122,11 +122,12 @@ export function addRole(chart: Chart, parentId?: string): Chart {
   const parent = parentId ? next.roles.find((role) => role.id === parentId) : undefined;
   const roleId = id('role');
   const staffMetrics = staffBoxMetrics(next.templateId);
+  const newWidth = Math.max(MIN_ROLE_WIDTH, staffMetrics.width);
   const newRole: Role = {
     id: roleId, title: 'New Position', lines: ['New Position'], kind: 'staff', fontSize: next.layout?.titleFontSize ?? 13.5,
-    x: Math.min(next.page.width - staffMetrics.width - 30, Math.max(30, (parent?.x ?? next.page.width / 2 - staffMetrics.width / 2) + 24)),
+    x: Math.min(next.page.width - newWidth - 30, Math.max(30, (parent?.x ?? next.page.width / 2 - newWidth / 2) + 24)),
     y: Math.min(next.page.height - 100, (parent?.y ?? 90) + (parent?.height ?? 40) + 90),
-    width: staffMetrics.width, height: staffMetrics.oneLineHeight, order: parentId ? outgoing(next, parentId).length : next.roles.length,
+    width: newWidth, height: staffMetrics.oneLineHeight, order: parentId ? outgoing(next, parentId).length : next.roles.length,
   };
   next.roles.push(newRole);
   if (parentId) next.connections.push({ id: id('connection'), sourceId: parentId, targetId: roleId });
@@ -175,6 +176,9 @@ export function reorderRole(chart: Chart, roleId: string, direction: -1 | 1): Ch
 
 export function autoLayout(chart: Chart): Chart {
   const next = copy(chart);
+  for (const role of next.roles) {
+    if (role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
+  }
   normalizeStaffGeometry(next);
   const depth = new Map<string, number>();
   const visit = (roleId: string, trail = new Set<string>()): number => {
@@ -265,16 +269,35 @@ export function autoLayout(chart: Chart): Chart {
       width: 0,
       left: 0,
     })).sort((a, b) => a.desiredCenter - b.desiredCenter);
-    const unscaledWidth = clusters.reduce((sum, cluster) => sum + cluster.roles.reduce((roleSum, role) => roleSum + footprintFor(role.id), 0) + roleGap * Math.max(0, cluster.roles.length - 1), 0)
-      + groupGap * Math.max(0, clusters.length - 1);
+    const baseRolesWidth = clusters.reduce((sum, cluster) => sum + cluster.roles.reduce((rSum, role) => rSum + role.width, 0), 0);
+    const totalRoleGaps = clusters.reduce((sum, cluster) => sum + Math.max(0, cluster.roles.length - 1), 0);
+    const totalGroupGaps = Math.max(0, clusters.length - 1);
+    const uncompressedGaps = totalRoleGaps * roleGap + totalGroupGaps * groupGap;
     const availableWidth = next.page.width - pageMargin * 2;
-    const scale = unscaledWidth > availableWidth ? availableWidth / unscaledWidth : 1;
-    const scaledRoleGap = roleGap * scale;
-    const scaledGroupGap = groupGap * scale;
+
+    const gapScale = baseRolesWidth + uncompressedGaps > availableWidth
+      ? Math.max(0.3, (availableWidth - baseRolesWidth) / Math.max(1, uncompressedGaps))
+      : 1;
+    const scaledRoleGap = Math.max(6, roleGap * gapScale);
+    const scaledGroupGap = Math.max(8, groupGap * gapScale);
+
+    const baseClusterWidth = baseRolesWidth + totalRoleGaps * scaledRoleGap + totalGroupGaps * scaledGroupGap;
+    const availableForExpansion = Math.max(0, availableWidth - baseClusterWidth);
+    const totalExtraExpansion = clusters.reduce((sum, cluster) =>
+      sum + cluster.roles.reduce((rSum, role) => rSum + Math.max(0, footprintFor(role.id) - role.width), 0),
+    0);
+    const expansionScale = totalExtraExpansion > availableForExpansion && totalExtraExpansion > 0
+      ? availableForExpansion / totalExtraExpansion
+      : 1;
 
     for (const cluster of clusters) {
-      for (const role of cluster.roles) role.width *= scale;
-      cluster.width = cluster.roles.reduce((sum, role) => sum + footprintFor(role.id) * scale, 0) + scaledRoleGap * Math.max(0, cluster.roles.length - 1);
+      for (const role of cluster.roles) {
+        role.width = Math.max(MIN_ROLE_WIDTH, role.width);
+      }
+      cluster.width = cluster.roles.reduce((sum, role) => {
+        const extra = Math.max(0, footprintFor(role.id) - role.width) * expansionScale;
+        return sum + role.width + extra;
+      }, 0) + scaledRoleGap * Math.max(0, cluster.roles.length - 1);
       cluster.left = Math.min(next.page.width - pageMargin - cluster.width, Math.max(pageMargin, cluster.desiredCenter - cluster.width / 2));
     }
     for (let index = 1; index < clusters.length; index += 1) {
@@ -291,8 +314,9 @@ export function autoLayout(chart: Chart): Chart {
     for (const cluster of clusters) {
       let x = cluster.left;
       cluster.roles.forEach((role, index) => {
-        const cellWidth = footprintFor(role.id) * scale;
-        role.x = x + (cellWidth - role.width) / 2;
+        const extra = Math.max(0, footprintFor(role.id) - role.width) * expansionScale;
+        const cellWidth = role.width + extra;
+        role.x = Math.max(pageMargin, Math.min(next.page.width - pageMargin - role.width, x + (cellWidth - role.width) / 2));
         role.y = levelYMap.get(level) ?? (firstY + level * effectiveVerticalGap);
         role.order = index;
         x += cellWidth + scaledRoleGap;
@@ -300,6 +324,9 @@ export function autoLayout(chart: Chart): Chart {
     }
   }
   [...levels.values()].flat().sort((a, b) => (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0)).forEach((parent) => stackStaffReports(next, parent.id));
+  for (const role of next.roles) {
+    if (role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
+  }
   next.updatedAt = new Date().toISOString();
   return next;
 }

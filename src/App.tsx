@@ -17,7 +17,7 @@ const normalizeLibrary = (library: Library): Library => ({
   ...library,
   charts: library.charts.map((chart) => {
     const layout = chart.layout ?? clone(DEFAULT_LAYOUT_SETTINGS[chart.templateId]);
-    return normalizeStaffRoles({ ...chart, layout });
+    return autoLayout({ ...chart, layout });
   }),
 });
 
