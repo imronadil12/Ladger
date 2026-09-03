@@ -17,8 +17,8 @@ type StaffBoxMetrics = {
 };
 
 const STAFF_BOX_METRICS: Record<ChartTemplate, StaffBoxMetrics> = {
-  bbs: { width: MIN_ROLE_WIDTH - STAFF_TOTAL_INDENT, oneLineHeight: 42, twoLineHeight: 52 },
-  sfc: { width: MIN_ROLE_WIDTH - STAFF_TOTAL_INDENT, oneLineHeight: 29.933, twoLineHeight: 59.865 },
+  bbs: { width: MIN_ROLE_WIDTH - STAFF_TOTAL_INDENT, oneLineHeight: 42, twoLineHeight: 58 },
+  sfc: { width: MIN_ROLE_WIDTH - STAFF_TOTAL_INDENT, oneLineHeight: 42, twoLineHeight: 58 },
 };
 
 const cleanLines = (lines: string[]) => lines.map((line) => line.trim()).filter(Boolean);
@@ -128,11 +128,18 @@ export function roleTextLines(role: Role, baseFontSize = 13.5): string[] {
   return computeRoleTextFit(role, baseFontSize).lines;
 }
 
-export function staffBoxHeight(role: Role, templateId: ChartTemplate, baseFontSize = 13.5): number {
-  const metrics = staffBoxMetrics(templateId);
-  const maxW = Math.max(20, metrics.width - 24);
+export const CONTAINER_H_PADDING = 14;
+export const CONTAINER_V_PADDING = 16.3;
+
+export function roleBoxHeight(role: Role, baseFontSize = 13.5): number {
+  const maxW = Math.max(20, role.width - CONTAINER_H_PADDING * 2);
   const lines = getRoleLines(role, maxW, baseFontSize);
-  if (lines.length <= 1) return metrics.oneLineHeight;
-  if (lines.length === 2) return metrics.twoLineHeight;
-  return Math.max(metrics.twoLineHeight, metrics.oneLineHeight + (lines.length - 1) * (baseFontSize * 1.25) + 10);
+  const band = (role.kind === 'executive' || role.kind === 'commissioner') ? 8 : 0;
+  if (lines.length <= 1) return 42 + band;
+  if (lines.length === 2) return 58 + band;
+  return 42 + (lines.length - 1) * 16 + band;
+}
+
+export function staffBoxHeight(role: Role, _templateId?: ChartTemplate, baseFontSize = 13.5): number {
+  return roleBoxHeight(role, baseFontSize);
 }

@@ -1,5 +1,5 @@
 import type { Chart, Role } from '../types';
-import { MIN_ROLE_WIDTH, STAFF_LEFT_OFFSET, STAFF_TOTAL_INDENT, staffBoxHeight, staffBoxMetrics } from './role-layout';
+import { MIN_ROLE_WIDTH, STAFF_LEFT_OFFSET, STAFF_TOTAL_INDENT, roleBoxHeight, staffBoxMetrics } from './role-layout';
 
 const copy = (chart: Chart): Chart => structuredClone(chart);
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -47,16 +47,16 @@ function stackStaffReports(chart: Chart, parentId: string): void {
 function normalizeStaffGeometry(chart: Chart): void {
   const baseFontSize = chart.layout?.titleFontSize ?? 13.5;
   for (const role of chart.roles) {
-    if (role.kind !== 'staff') continue;
-    const parentId = incoming(chart, role.id)[0]?.sourceId;
-    const parent = parentId ? roleById(chart, parentId) : null;
-    const managerWidth = parent ? parent.width : MIN_ROLE_WIDTH;
-    const maxStaffWidth = managerWidth - STAFF_TOTAL_INDENT;
-    role.width = maxStaffWidth;
-    if (parent) {
-      role.x = parent.x + STAFF_LEFT_OFFSET;
+    if (role.kind === 'staff') {
+      const parentId = incoming(chart, role.id)[0]?.sourceId;
+      const parent = parentId ? roleById(chart, parentId) : null;
+      const managerWidth = parent ? parent.width : MIN_ROLE_WIDTH;
+      role.width = managerWidth - STAFF_TOTAL_INDENT;
+      if (parent) {
+        role.x = parent.x + STAFF_LEFT_OFFSET;
+      }
     }
-    role.height = staffBoxHeight(role, chart.templateId, baseFontSize);
+    role.height = roleBoxHeight(role, baseFontSize);
   }
 }
 
