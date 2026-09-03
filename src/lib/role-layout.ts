@@ -3,6 +3,7 @@ import type { Role } from '../types';
 export type ChartTemplate = 'bbs' | 'sfc';
 
 export const MIN_ROLE_WIDTH = 240;
+export const STAFF_LINE_SPACE = 26;
 
 type StaffBoxMetrics = {
   width: number;
@@ -11,8 +12,8 @@ type StaffBoxMetrics = {
 };
 
 const STAFF_BOX_METRICS: Record<ChartTemplate, StaffBoxMetrics> = {
-  bbs: { width: 240, oneLineHeight: 42, twoLineHeight: 52 },
-  sfc: { width: 240, oneLineHeight: 29.933, twoLineHeight: 59.865 },
+  bbs: { width: MIN_ROLE_WIDTH - STAFF_LINE_SPACE, oneLineHeight: 42, twoLineHeight: 52 },
+  sfc: { width: MIN_ROLE_WIDTH - STAFF_LINE_SPACE, oneLineHeight: 29.933, twoLineHeight: 59.865 },
 };
 
 const cleanLines = (lines: string[]) => lines.map((line) => line.trim()).filter(Boolean);

@@ -1,5 +1,5 @@
 import type { Chart, Role } from '../types';
-import { MIN_ROLE_WIDTH, staffBoxHeight, staffBoxMetrics } from './role-layout';
+import { MIN_ROLE_WIDTH, STAFF_LINE_SPACE, staffBoxHeight, staffBoxMetrics } from './role-layout';
 
 const copy = (chart: Chart): Chart => structuredClone(chart);
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -34,9 +34,11 @@ function stackStaffReports(chart: Chart, parentId: string): void {
     : 0;
   let y = parent.y + parent.height + topGap;
 
+  const maxStaffWidth = parent.width - STAFF_LINE_SPACE;
+
   reports.forEach((role, index) => {
-    const inset = (parent.width - role.width) / 2;
-    role.x = Math.min(chart.page.width - role.width - 30, Math.max(30, parent.x + inset));
+    role.width = maxStaffWidth;
+    role.x = Math.min(chart.page.width - role.width - 30, Math.max(30, parent.x + STAFF_LINE_SPACE));
     role.y = y;
     role.order = index;
     y += role.height + gap;
@@ -44,13 +46,17 @@ function stackStaffReports(chart: Chart, parentId: string): void {
 }
 
 function normalizeStaffGeometry(chart: Chart): void {
-  const metrics = staffBoxMetrics(chart.templateId);
   const baseFontSize = chart.layout?.titleFontSize ?? 13.5;
   for (const role of chart.roles) {
     if (role.kind !== 'staff') continue;
-    const center = role.x + role.width / 2;
-    role.width = Math.max(MIN_ROLE_WIDTH, metrics.width);
-    role.x = center - role.width / 2;
+    const parentId = incoming(chart, role.id)[0]?.sourceId;
+    const parent = parentId ? roleById(chart, parentId) : null;
+    const managerWidth = parent ? parent.width : MIN_ROLE_WIDTH;
+    const maxStaffWidth = managerWidth - STAFF_LINE_SPACE;
+    role.width = maxStaffWidth;
+    if (parent) {
+      role.x = parent.x + STAFF_LINE_SPACE;
+    }
     role.height = staffBoxHeight(role, chart.templateId, baseFontSize);
   }
 }
@@ -122,10 +128,11 @@ export function addRole(chart: Chart, parentId?: string): Chart {
   const parent = parentId ? next.roles.find((role) => role.id === parentId) : undefined;
   const roleId = id('role');
   const staffMetrics = staffBoxMetrics(next.templateId);
-  const newWidth = Math.max(MIN_ROLE_WIDTH, staffMetrics.width);
+  const parentWidth = parent ? parent.width : MIN_ROLE_WIDTH;
+  const newWidth = parent ? parentWidth - STAFF_LINE_SPACE : MIN_ROLE_WIDTH;
   const newRole: Role = {
     id: roleId, title: 'New Position', lines: ['New Position'], kind: 'staff', fontSize: next.layout?.titleFontSize ?? 13.5,
-    x: Math.min(next.page.width - newWidth - 30, Math.max(30, (parent?.x ?? next.page.width / 2 - newWidth / 2) + 24)),
+    x: Math.min(next.page.width - newWidth - 30, Math.max(30, parent ? parent.x + STAFF_LINE_SPACE : next.page.width / 2 - newWidth / 2)),
     y: Math.min(next.page.height - 100, (parent?.y ?? 90) + (parent?.height ?? 40) + 90),
     width: newWidth, height: staffMetrics.oneLineHeight, order: parentId ? outgoing(next, parentId).length : next.roles.length,
   };
@@ -177,7 +184,7 @@ export function reorderRole(chart: Chart, roleId: string, direction: -1 | 1): Ch
 export function autoLayout(chart: Chart): Chart {
   const next = copy(chart);
   for (const role of next.roles) {
-    if (role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
+    if (role.kind !== 'staff' && role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
   }
   normalizeStaffGeometry(next);
   const depth = new Map<string, number>();
@@ -325,7 +332,7 @@ export function autoLayout(chart: Chart): Chart {
   }
   [...levels.values()].flat().sort((a, b) => (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0)).forEach((parent) => stackStaffReports(next, parent.id));
   for (const role of next.roles) {
-    if (role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
+    if (role.kind !== 'staff' && role.width < MIN_ROLE_WIDTH) role.width = MIN_ROLE_WIDTH;
   }
   next.updatedAt = new Date().toISOString();
   return next;

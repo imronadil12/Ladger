@@ -52,6 +52,22 @@ function pathForGroup(parents: Role[], targets: Role[], marker: string): string 
   const targetYRange = Math.max(...sortedTargets.map((role) => role.y)) - targetTop;
   const paths: string[] = [];
 
+  const isStaffReporting = sortedParents.length === 1 && sortedTargets.every((role) => role.kind === 'staff');
+  if (isStaffReporting) {
+    const source = sortedParents[0];
+    const minTargetX = Math.min(...sortedTargets.map((role) => role.x));
+    const trunkX = Math.max(source.x + 6, minTargetX - 16);
+    for (const target of sortedTargets) {
+      const y = target.y + target.height / 2;
+      paths.push(connector([
+        { x: trunkX, y: bottom(source) },
+        { x: trunkX, y },
+        { x: target.x - 6, y },
+      ], marker));
+    }
+    return paths.join('');
+  }
+
   if (sortedParents.length === 1 && sortedTargets.length === 1) {
     const source = sortedParents[0];
     const target = sortedTargets[0];

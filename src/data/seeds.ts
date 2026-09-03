@@ -1,5 +1,5 @@
 import type { Chart, ChartLayoutSettings, Company, Connection, Library, Role, RoleKind } from '../types';
-import { MIN_ROLE_WIDTH } from '../lib/role-layout';
+import { MIN_ROLE_WIDTH, STAFF_LINE_SPACE } from '../lib/role-layout';
 
 const W = 1190.55;
 const H = 841.89;
@@ -33,7 +33,18 @@ const role = (
   lines?: string[],
   fontSize = 14.25,
   order = 0,
-): Role => ({ id, title, kind, x, y, width: Math.max(MIN_ROLE_WIDTH, width), height, lines, fontSize, order });
+): Role => ({
+  id,
+  title,
+  kind,
+  x,
+  y,
+  width: kind === 'staff' ? Math.min(width, MIN_ROLE_WIDTH - STAFF_LINE_SPACE) : Math.max(MIN_ROLE_WIDTH, width),
+  height,
+  lines,
+  fontSize,
+  order,
+});
 
 const edge = (sourceId: string, targetId: string): Connection => ({
   id: `${sourceId}--${targetId}`,
