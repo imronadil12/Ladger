@@ -146,7 +146,6 @@ function PositionInspector({ role, chart, actions }: { role: Role; chart: Chart;
     <section className="inspector-section"><div className="section-title"><span>Position</span><small>{role.kind}</small></div>
       <CommitInput label="Title and line breaks" value={(role.lines?.length ? role.lines : [role.title]).join('\n')} multiline onCommit={(value) => { const lines = value.split('\n').map((line) => line.trim()).filter(Boolean); if (lines.length) actions.updateRole(role.id, { title: lines.join(' '), lines }); }} />
       <label className="field"><span>Style</span><select value={role.kind} onChange={(event) => actions.updateRole(role.id, { kind: event.target.value as RoleKind })}>{kinds.map((kind) => <option key={kind} value={kind}>{kind[0].toUpperCase() + kind.slice(1)}</option>)}</select></label>
-      <div className="inline-fields"><CommitInput label="Font" value={role.fontSize} type="number" min={7} max={32} step={.25} suffix="pt" onCommit={(value) => actions.updateRole(role.id, { fontSize: asNumber(value, role.fontSize) })} /><span /></div>
     </section>
     <section className="inspector-section"><div className="section-title"><span>Reports to</span><small>{parentIds.length || 'None'}</small></div><div className="parent-list">{chart.roles.filter((item) => item.id !== role.id).map((item) => <label key={item.id}><input type="checkbox" checked={parentIds.includes(item.id)} onChange={(event) => actions.setParents(role.id, event.target.checked ? [...parentIds, item.id] : parentIds.filter((id) => id !== item.id))} /><span>{item.title}</span></label>)}</div></section>
     <section className="inspector-section">
@@ -224,6 +223,18 @@ function RangeControl({
 function LayoutInspector({ chart, actions }: { chart: Chart; actions: WorkspaceActions }) {
   const layout = chart.layout ?? DEFAULT_LAYOUT_SETTINGS[chart.templateId];
   return <>
+    <section className="inspector-section">
+      <div className="section-title"><span>Typography</span><small>All positions</small></div>
+      <RangeControl
+        label="Title Font Size"
+        value={layout.titleFontSize ?? 13.5}
+        min={9}
+        max={20}
+        step={0.5}
+        suffix="pt"
+        onChange={(val) => actions.updateLayout({ titleFontSize: val })}
+      />
+    </section>
     <section className="inspector-section">
       <div className="section-title"><span>Position Spacing</span><small>{chart.templateId.toUpperCase()}</small></div>
       <RangeControl

@@ -1,5 +1,5 @@
 import type { Chart, Company, Connection, Role } from '../types';
-import { roleTextLines } from './role-layout';
+import { computeRoleTextFit } from './role-layout';
 
 const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[character]!));
 const centerX = (role: Role) => role.x + role.width / 2;
@@ -129,19 +129,15 @@ function renderConnections(chart: Chart, company: Company): string {
   return `<g class="chart-connectors" fill="none" stroke="${escape(company.branding.border)}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">${[...groups.values()].map((group) => pathForGroup(group.parents, group.targets, 'chart-arrow')).join('')}</g>`;
 }
 
-function roleText(role: Role, text: string): string {
-  const lines = roleTextLines({ ...role, title: text });
-  const lineHeight = role.fontSize * 1.16;
-  const capHeight = role.fontSize * 0.7;
-  const inkHeight = capHeight + (lines.length - 1) * lineHeight;
-  const center = role.y + (role.height - (role.kind === 'executive' || role.kind === 'commissioner' ? 8 : 0)) / 2;
-  const firstBaseline = center - inkHeight / 2 + capHeight;
-  return `<text x="${centerX(role)}" y="${firstBaseline}" text-anchor="middle" dominant-baseline="alphabetic" font-family="Gotham, Arial, sans-serif" font-size="${role.fontSize}" font-weight="700">${lines.map((line, index) => `<tspan x="${centerX(role)}" dy="${index ? lineHeight : 0}">${escape(line)}</tspan>`).join('')}</text>`;
+function roleText(role: Role, text: string, baseFontSize = 13.5): string {
+  const { lines, fontSize, lineHeight, firstBaseline } = computeRoleTextFit({ ...role, title: text }, baseFontSize);
+  return `<text x="${centerX(role)}" y="${firstBaseline}" text-anchor="middle" dominant-baseline="alphabetic" font-family="Gotham, Arial, sans-serif" font-size="${fontSize}" font-weight="700">${lines.map((line, index) => `<tspan x="${centerX(role)}" dy="${index ? lineHeight : 0}">${escape(line)}</tspan>`).join('')}</text>`;
 }
 
-function renderRole(role: Role, company: Company): string {
+function renderRole(role: Role, company: Company, baseFontSize = 13.5): string {
   const { primary, accent, border, text } = company.branding;
   const radius = role.kind === 'staff' ? 7 : role.kind === 'ceo' ? 6 : 10;
+  const clipId = `clip-role-${escape(role.id)}`;
   let body = '';
   if (role.kind === 'ceo') {
     body = `<rect x="${role.x}" y="${role.y + 5}" width="${role.width}" height="${role.height}" rx="${radius}" fill="${escape(primary)}" opacity=".28"/><rect x="${role.x}" y="${role.y}" width="${role.width}" height="${role.height}" rx="${radius}" fill="${escape(accent)}"/>`;
@@ -151,7 +147,7 @@ function renderRole(role: Role, company: Company): string {
   } else {
     body = `<rect x="${role.x}" y="${role.y}" width="${role.width}" height="${role.height}" rx="${radius}" fill="#fff" stroke="${escape(border)}" stroke-width="1.2"/>`;
   }
-  return `<g class="chart-role role-${role.kind}" data-role-id="${escape(role.id)}" aria-label="${escape(role.title)}" role="button" tabindex="0" fill="${escape(text)}" style="cursor:pointer">${body}${roleText(role, role.title)}<rect class="role-hitbox" x="${role.x}" y="${role.y}" width="${role.width}" height="${role.height}" rx="${radius}" fill="transparent"/></g>`;
+  return `<g class="chart-role role-${role.kind}" data-role-id="${escape(role.id)}" aria-label="${escape(role.title)}" role="button" tabindex="0" fill="${escape(text)}" style="cursor:pointer"><defs><clipPath id="${clipId}"><rect x="${role.x + 2}" y="${role.y + 2}" width="${Math.max(1, role.width - 4)}" height="${Math.max(1, role.height - 4)}" rx="${Math.max(0, radius - 2)}"/></clipPath></defs>${body}<g clip-path="url(#${clipId})">${roleText(role, role.title, baseFontSize)}</g><rect class="role-hitbox" x="${role.x}" y="${role.y}" width="${role.width}" height="${role.height}" rx="${radius}" fill="transparent"/></g>`;
 }
 
 function renderBbsLogo(company: Company): string {
@@ -177,6 +173,7 @@ function renderFooter(chart: Chart, company: Company): string {
 export function renderChartSvg(chart: Chart, company: Company): string {
   const { width, height } = chart.page;
   const titleX = width - 62;
+  const baseFontSize = chart.layout?.titleFontSize ?? 13.5;
   const sfcArt = chart.templateId === 'sfc' ? `<image href="/assets/sfc-artwork.svg" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>` : renderBbsLogo(company);
   return `<svg id="chart-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-labelledby="chart-title chart-description">
     <title id="chart-title">${escape(chart.name)}</title><desc id="chart-description">Organizational chart for ${escape(company.name)}</desc>
@@ -185,7 +182,7 @@ export function renderChartSvg(chart: Chart, company: Company): string {
     ${sfcArt}
     <g class="chart-heading" fill="${escape(chart.templateId === 'sfc' ? '#151515' : company.branding.primary)}" font-family="Gotham, Arial, sans-serif" font-weight="700" font-size="22.2" text-anchor="end"><text x="${titleX}" y="75">Organizational</text><text x="${titleX}" y="102">Structure</text></g>
     ${renderConnections(chart, company)}
-    <g class="chart-roles">${[...chart.roles].sort((a, b) => a.order - b.order).map((item) => renderRole(item, company)).join('')}</g>
+    <g class="chart-roles">${[...chart.roles].sort((a, b) => a.order - b.order).map((item) => renderRole(item, company, baseFontSize)).join('')}</g>
     ${renderFooter(chart, company)}
   </svg>`;
 }

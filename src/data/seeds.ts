@@ -10,12 +10,14 @@ export const DEFAULT_LAYOUT_SETTINGS: Record<'bbs' | 'sfc', ChartLayoutSettings>
     verticalGap: 55,
     staffGap: 17,
     staffTopGap: 36,
+    titleFontSize: 13.5,
   },
   sfc: {
     horizontalGap: 18,
     verticalGap: 55,
     staffGap: 15,
     staffTopGap: 30,
+    titleFontSize: 13.5,
   },
 };
 

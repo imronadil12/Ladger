@@ -45,12 +45,13 @@ function stackStaffReports(chart: Chart, parentId: string): void {
 
 function normalizeStaffGeometry(chart: Chart): void {
   const metrics = staffBoxMetrics(chart.templateId);
+  const baseFontSize = chart.layout?.titleFontSize ?? 13.5;
   for (const role of chart.roles) {
     if (role.kind !== 'staff') continue;
     const center = role.x + role.width / 2;
     role.width = metrics.width;
     role.x = center - role.width / 2;
-    role.height = staffBoxHeight(role, chart.templateId);
+    role.height = staffBoxHeight(role, chart.templateId, baseFontSize);
   }
 }
 
@@ -122,7 +123,7 @@ export function addRole(chart: Chart, parentId?: string): Chart {
   const roleId = id('role');
   const staffMetrics = staffBoxMetrics(next.templateId);
   const newRole: Role = {
-    id: roleId, title: 'New Position', lines: ['New Position'], kind: 'staff', fontSize: 13.2,
+    id: roleId, title: 'New Position', lines: ['New Position'], kind: 'staff', fontSize: next.layout?.titleFontSize ?? 13.5,
     x: Math.min(next.page.width - staffMetrics.width - 30, Math.max(30, (parent?.x ?? next.page.width / 2 - staffMetrics.width / 2) + 24)),
     y: Math.min(next.page.height - 100, (parent?.y ?? 90) + (parent?.height ?? 40) + 90),
     width: staffMetrics.width, height: staffMetrics.oneLineHeight, order: parentId ? outgoing(next, parentId).length : next.roles.length,

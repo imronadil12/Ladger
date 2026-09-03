@@ -30,6 +30,7 @@ export interface ChartLayoutSettings {
   verticalGap: number;
   staffGap: number;
   staffTopGap: number;
+  titleFontSize?: number;
 }
 export interface Chart {
   id: string;
