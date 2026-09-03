@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   AlignHorizontalSpaceAround, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Building2, Check, ChevronDown,
   Download, FileArchive, FileImage, FilePlus2, ImagePlus, LayoutTemplate, MoreHorizontal, Plus,
@@ -109,7 +109,7 @@ function LibraryPanel({ library, chart, selectedRoleId, onSelectRole, actions }:
 function TopBar({ chart, actions, canUndo, canRedo, saveStatus, exporting }: Pick<WorkspaceProps, 'chart' | 'actions' | 'canUndo' | 'canRedo' | 'saveStatus' | 'exporting'>) {
   return <header className="topbar">
     <div className="document-title"><span className={`company-dot ${chart.templateId}`} /><div><strong>{chart.name}</strong><small>{saveStatus}</small></div></div>
-    <div className="topbar-cluster"><IconButton label="Undo" disabled={!canUndo} onClick={actions.undo}><Undo2 size={17} /></IconButton><IconButton label="Redo" disabled={!canRedo} onClick={actions.redo}><Redo2 size={17} /></IconButton><span className="toolbar-divider" /><button className="toolbar-button" type="button" onClick={actions.autoLayout}><AlignHorizontalSpaceAround size={16} /> Auto arrange</button></div>
+    <div className="topbar-cluster"><IconButton label="Undo (⌘Z / Ctrl+Z)" disabled={!canUndo} onClick={actions.undo}><Undo2 size={17} /></IconButton><IconButton label="Redo (⌘⇧Z / Ctrl+Y)" disabled={!canRedo} onClick={actions.redo}><Redo2 size={17} /></IconButton><span className="toolbar-divider" /><button className="toolbar-button" type="button" onClick={actions.autoLayout}><AlignHorizontalSpaceAround size={16} /> Auto arrange</button></div>
     <div className="topbar-cluster export-cluster"><button className="toolbar-button" type="button" onClick={actions.exportProject}><FileArchive size={16} /> Backup</button><label className="toolbar-button file-button"><Upload size={16} /> Import<input type="file" accept=".json,.orgchart.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) actions.importProject(file); event.currentTarget.value = ''; }} /></label><button className="toolbar-button" disabled={exporting} type="button" onClick={() => actions.exportChart('png')}><FileImage size={16} /> PNG</button><button className="button primary export" disabled={exporting} type="button" onClick={() => actions.exportChart('pdf')}><Download size={16} /> {exporting ? 'Preparing…' : 'Export PDF'}</button></div>
   </header>;
 }
@@ -121,10 +121,67 @@ function Canvas({ svg, chart, selectedRoleId, onSelectRole }: Pick<WorkspaceProp
     const element = target instanceof Element ? target.closest<SVGGElement>('[data-role-id]') : null;
     onSelectRole(element?.dataset.roleId ?? null);
   };
+
+  const clampAndSnapZoom = useCallback((rawZoom: number): number => {
+    const clamped = Math.min(2.5, Math.max(0.35, rawZoom));
+    // Magnetic snap to exactly 100% when within 4% of 1.0
+    if (Math.abs(clamped - 1.0) <= 0.04) return 1.0;
+    return Number(clamped.toFixed(3));
+  }, []);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      // Prevent page zoom / gesture bounce
+      event.preventDefault();
+
+      let dy = event.deltaY;
+      if (event.deltaMode === 1) dy *= 18;
+      if (event.deltaMode === 2) dy *= 100;
+
+      // Fine-grained delta for pinch gesture vs mouse wheel scroll
+      const factor = (event.ctrlKey || event.metaKey) ? 0.005 : 0.0015;
+      const delta = -dy * factor;
+
+      setZoom((current) => clampAndSnapZoom(current + delta));
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [clampAndSnapZoom]);
+
   return <main className="canvas-area">
-    <div className="canvas-toolbar"><span>A3 landscape</span><div><IconButton label="Zoom out" onClick={() => setZoom((value) => Math.max(.42, value - .1))}><ZoomOut size={16} /></IconButton><button className="zoom-readout" type="button" onClick={() => setZoom(.78)}>{Math.round(zoom * 100)}%</button><IconButton label="Zoom in" onClick={() => setZoom((value) => Math.min(1.5, value + .1))}><ZoomIn size={16} /></IconButton></div></div>
-    <div className="canvas-scroll" ref={scrollRef} onClick={(event) => selectFromEvent(event.target)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectFromEvent(event.target); }}>
-      <div className="page-zoom" style={{ width: `${zoom * 100}%` }}><div className="paper" data-template={chart.templateId} dangerouslySetInnerHTML={{ __html: svg }} />{selectedRoleId ? <span className="selection-hint">Position selected</span> : null}</div>
+    <div className="canvas-toolbar">
+      <span>A3 landscape</span>
+      <div>
+        <IconButton label="Zoom out" onClick={() => setZoom((value) => clampAndSnapZoom(value - 0.1))}>
+          <ZoomOut size={16} />
+        </IconButton>
+        <button
+          className="zoom-readout"
+          type="button"
+          title={Math.abs(zoom - 1.0) < 0.01 ? 'Reset zoom to fit (78%)' : 'Snap zoom to 100%'}
+          onClick={() => setZoom((value) => (Math.abs(value - 1.0) < 0.01 ? 0.78 : 1.0))}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <IconButton label="Zoom in" onClick={() => setZoom((value) => clampAndSnapZoom(value + 0.1))}>
+          <ZoomIn size={16} />
+        </IconButton>
+      </div>
+    </div>
+    <div
+      className="canvas-scroll"
+      ref={scrollRef}
+      onClick={(event) => selectFromEvent(event.target)}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') selectFromEvent(event.target); }}
+    >
+      <div className="page-zoom" style={{ width: `${zoom * 100}%` }}>
+        <div className="paper" data-template={chart.templateId} dangerouslySetInnerHTML={{ __html: svg }} />
+        {selectedRoleId ? <span className="selection-hint">Position selected</span> : null}
+      </div>
     </div>
   </main>;
 }

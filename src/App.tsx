@@ -162,6 +162,44 @@ export default function App() {
     dismissNotice: () => setNotice(null),
   }), [chart, commit, library, updateActiveChart]);
 
+  useEffect(() => {
+    const isTextInput = (el: EventTarget | null): boolean => {
+      if (!el || !(el instanceof HTMLElement)) return false;
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'input') {
+        const type = (el as HTMLInputElement).type;
+        return type !== 'checkbox' && type !== 'radio' && type !== 'color' && type !== 'range';
+      }
+      return tag === 'textarea' || el.isContentEditable;
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isModifier = event.metaKey || event.ctrlKey;
+      if (!isModifier) return;
+
+      const key = event.key.toLowerCase();
+
+      // Redo: Cmd+Shift+Z, Ctrl+Shift+Z, or Ctrl+Y
+      if ((event.shiftKey && key === 'z') || (!event.shiftKey && key === 'y')) {
+        if (isTextInput(event.target)) return;
+        event.preventDefault();
+        actions.redo();
+        return;
+      }
+
+      // Undo: Cmd+Z or Ctrl+Z
+      if (!event.shiftKey && key === 'z') {
+        if (isTextInput(event.target)) return;
+        event.preventDefault();
+        actions.undo();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [actions]);
+
   const svg = useMemo(() => renderChartSvg(chart, company), [chart, company]);
   if (!ready) return <div className="loading-screen"><span>OC</span><p>Opening your charts…</p></div>;
   return <Workspace library={library} chart={chart} company={company} svg={svg} selectedRoleId={selectedRoleId} onSelectRole={setSelectedRoleId} actions={actions} canUndo={Boolean(history.past.length)} canRedo={Boolean(history.future.length)} saveStatus={saveStatus} exporting={exporting} notice={notice} />;
