@@ -2,7 +2,7 @@ import type { Role } from '../types';
 
 export type ChartTemplate = 'bbs' | 'sfc';
 
-export const MIN_ROLE_WIDTH = 240;
+export const MIN_ROLE_WIDTH = 200;
 export const STAFF_TRUNK_OFFSET = 12;
 export const STAFF_ARROW_LENGTH = 24;
 export const STAFF_LEFT_OFFSET = STAFF_TRUNK_OFFSET + STAFF_ARROW_LENGTH; // 36
