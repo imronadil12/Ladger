@@ -21,17 +21,10 @@ function stackStaffReports(chart: Chart, parentId: string): void {
     .sort((a, b) => a.order - b.order || a.y - b.y);
   if (!reports.length) return;
 
-  const verticalGap = chart.layout?.verticalGap ?? 55;
+  const verticalGap = chart.layout?.verticalGap ?? 48;
   const staffGap = chart.layout?.staffGap ?? STAFF_GAP;
 
-  const footerTop = chart.page.height - 96;
-  const totalHeight = reports.reduce((sum, role) => sum + role.height, 0);
-  const spacingRoom = Math.max(0, footerTop - (parent.y + parent.height) - totalHeight);
-  const topGap = Math.min(verticalGap, Math.max(6, spacingRoom * 0.42));
-  const gap = reports.length > 1
-    ? Math.min(staffGap, Math.max(4, (spacingRoom - topGap) / (reports.length - 1)))
-    : 0;
-  let y = parent.y + parent.height + topGap;
+  let y = parent.y + parent.height + verticalGap;
 
   const maxStaffWidth = parent.width - STAFF_TOTAL_INDENT;
 
@@ -40,7 +33,7 @@ function stackStaffReports(chart: Chart, parentId: string): void {
     role.x = Math.min(chart.page.width - role.width - 30, Math.max(30, parent.x + STAFF_LEFT_OFFSET));
     role.y = y;
     role.order = index;
-    y += role.height + gap;
+    y += role.height + staffGap;
   });
 }
 
@@ -230,10 +223,10 @@ export function autoLayout(chart: Chart): Chart {
   for (const role of next.roles) footprintFor(role.id);
   const deepestRoles = levels.get(maximum) ?? [];
   const deepestHeight = Math.max(42, ...deepestRoles.map((role) => role.height));
-  const maximumStaffStack = Math.max(0, ...next.roles.map((parent) => {
+  const staffRoleHeights = Math.max(0, ...next.roles.map((parent) => {
     const reports = reportsFor(next, parent.id).filter((role) => stackedStaffIds.has(role.id));
     return reports.length
-      ? configuredVerticalGap + reports.reduce((sum, role) => sum + role.height, 0) + staffGap * (reports.length - 1)
+      ? reports.reduce((sum, role) => sum + role.height, 0) + staffGap * (reports.length - 1)
       : 0;
   }));
   const firstY = 66;
@@ -243,9 +236,11 @@ export function autoLayout(chart: Chart): Chart {
     const rolesOnLvl = levels.get(lvl) ?? [];
     totalLevelHeights += Math.max(36, ...rolesOnLvl.map((r) => r.height));
   }
-  const maxAvailableForGaps = Math.max(0, next.page.height - 96 - firstY - deepestHeight - maximumStaffStack - totalLevelHeights);
-  const maxPossibleVerticalGap = maximum > 0 ? maxAvailableForGaps / maximum : configuredVerticalGap;
-  const effectiveVerticalGap = Math.min(configuredVerticalGap, Math.max(20, maxPossibleVerticalGap));
+  const totalContentHeights = totalLevelHeights + deepestHeight + staffRoleHeights;
+  const totalGapsCount = maximum + (staffRoleHeights > 0 ? 1 : 0);
+  const maxAvailableForGaps = Math.max(0, next.page.height - 80 - totalContentHeights);
+  const maxPossibleVerticalGap = totalGapsCount > 0 ? maxAvailableForGaps / totalGapsCount : configuredVerticalGap;
+  const effectiveVerticalGap = Math.min(configuredVerticalGap, Math.max(16, maxPossibleVerticalGap));
 
   const levelYMap = new Map<number, number>();
   let currentLevelY = firstY;
@@ -253,6 +248,9 @@ export function autoLayout(chart: Chart): Chart {
     levelYMap.set(lvl, currentLevelY);
     const rolesOnLvl = levels.get(lvl) ?? [];
     const maxH = Math.max(36, ...rolesOnLvl.map((r) => r.height));
+    for (const r of rolesOnLvl) {
+      r.height = maxH;
+    }
     currentLevelY += maxH + effectiveVerticalGap;
   }
 
@@ -306,12 +304,12 @@ export function autoLayout(chart: Chart): Chart {
       cluster.left = Math.min(next.page.width - pageMargin - cluster.width, Math.max(pageMargin, cluster.desiredCenter - cluster.width / 2));
     }
     for (let index = 1; index < clusters.length; index += 1) {
-      clusters[index].left = Math.max(clusters[index].left, clusters[index - 1].left + clusters[index - 1].width + scaledGroupGap);
+      clusters[index].left = Math.max(clusters[index].left, clusters[index - 1].left + clusters[index - 1].width + scaledRoleGap);
     }
     if (clusters.length && clusters.at(-1)!.left + clusters.at(-1)!.width > next.page.width - pageMargin) {
       clusters.at(-1)!.left = next.page.width - pageMargin - clusters.at(-1)!.width;
       for (let index = clusters.length - 2; index >= 0; index -= 1) {
-        clusters[index].left = Math.min(clusters[index].left, clusters[index + 1].left - scaledGroupGap - clusters[index].width);
+        clusters[index].left = Math.min(clusters[index].left, clusters[index + 1].left - scaledRoleGap - clusters[index].width);
       }
       const correction = Math.max(0, pageMargin - clusters[0].left);
       for (const cluster of clusters) cluster.left += correction;
