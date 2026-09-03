@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Workspace from './components/Workspace';
-import { seedLibrary } from './data/seeds';
+import { DEFAULT_LAYOUT_SETTINGS, seedLibrary } from './data/seeds';
 import { addRole, autoLayout, normalizeStaffRoles, removeRole, reorderRole, setRoleParents, validateChart } from './lib/chart';
 import { exportChart as downloadChart } from './lib/export';
 import { downloadProject, loadLibrary, readProject, saveLibrary } from './lib/storage';
 import { renderChartSvg } from './lib/render';
-import type { Branding, Chart, Company, ExportFormat, Library, Role, WorkspaceActions } from './types';
+import type { Branding, Chart, ChartLayoutSettings, Company, ExportFormat, Library, Role, WorkspaceActions } from './types';
 
 type History = { past: Library[]; present: Library; future: Library[] };
 type Notice = { type: 'error' | 'success'; message: string } | null;
@@ -13,7 +13,13 @@ type Notice = { type: 'error' | 'success'; message: string } | null;
 const clone = <T,>(value: T): T => structuredClone(value);
 const uid = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const message = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong.';
-const normalizeLibraryStaff = (library: Library): Library => ({ ...library, charts: library.charts.map(normalizeStaffRoles) });
+const normalizeLibrary = (library: Library): Library => ({
+  ...library,
+  charts: library.charts.map((chart) => {
+    const layout = chart.layout ?? clone(DEFAULT_LAYOUT_SETTINGS[chart.templateId]);
+    return normalizeStaffRoles({ ...chart, layout });
+  }),
+});
 
 function duplicateTemplate(library: Library, source: Chart, name: string): { company: Company; chart: Chart } {
   const sourceCompany = library.companies.find((company) => company.id === source.companyId)!;
@@ -48,7 +54,7 @@ export default function App() {
     loadLibrary().then((saved) => {
       if (!active) return;
       const requested = new URLSearchParams(window.location.search).get('chart');
-      const present = normalizeLibraryStaff(saved ?? clone(seedLibrary));
+      const present = normalizeLibrary(saved ?? clone(seedLibrary));
       if (requested && present.charts.some((item) => item.id === requested)) present.activeChartId = requested;
       setHistory({ past: [], present, future: [] });
       setReady(true); setSaveStatus(saved ? 'Saved locally' : 'New local workspace');
@@ -110,7 +116,8 @@ export default function App() {
       if (index < 0) throw new Error('The selected position no longer exists.');
       next.roles[index] = { ...next.roles[index], ...patch } as Role;
       if (!next.roles[index].title.trim()) throw new Error('A position title cannot be empty.');
-      next.updatedAt = new Date().toISOString(); return next;
+      next.updatedAt = new Date().toISOString();
+      return autoLayout(next);
     })),
     addRole: (parentId) => commit((draft) => updateActiveChart(draft, (item) => {
       const before = new Set(item.roles.map((role) => role.id)); const next = addRole(item, parentId);
@@ -124,6 +131,14 @@ export default function App() {
     setParents: (roleId, parentIds) => commit((draft) => updateActiveChart(draft, (item) => setRoleParents(item, roleId, parentIds))),
     reorderRole: (roleId, direction) => commit((draft) => updateActiveChart(draft, (item) => reorderRole(item, roleId, direction))),
     autoLayout: () => commit((draft) => updateActiveChart(draft, autoLayout)),
+    updateLayout: (patch: Partial<ChartLayoutSettings>) => commit((draft) => updateActiveChart(draft, (item) => {
+      const currentLayout = item.layout ?? clone(DEFAULT_LAYOUT_SETTINGS[item.templateId]);
+      const nextLayout = { ...currentLayout, ...patch };
+      return autoLayout({ ...item, layout: nextLayout, updatedAt: new Date().toISOString() });
+    })),
+    resetLayout: () => commit((draft) => updateActiveChart(draft, (item) => {
+      return autoLayout({ ...item, layout: clone(DEFAULT_LAYOUT_SETTINGS[item.templateId]), updatedAt: new Date().toISOString() });
+    })),
     updateBranding: (patch: Partial<Branding>) => commit((draft) => {
       const currentChart = draft.charts.find((item) => item.id === draft.activeChartId)!;
       const index = draft.companies.findIndex((item) => item.id === currentChart.companyId);
@@ -143,7 +158,7 @@ export default function App() {
       downloadChart(svg, chart, format).then(() => setNotice({ type: 'success', message: `${format.toUpperCase()} export created from the current chart.` })).catch((error) => setNotice({ type: 'error', message: message(error) })).finally(() => setExporting(false));
     },
     exportProject: () => { try { downloadProject(library); setNotice({ type: 'success', message: 'Editable project backup downloaded.' }); } catch (error) { setNotice({ type: 'error', message: message(error) }); } },
-    importProject: (file) => { readProject(file).then((imported) => { setHistory((current) => ({ past: [...current.past, current.present].slice(-50), present: normalizeLibraryStaff(imported), future: [] })); setSelectedRoleId(null); setNotice({ type: 'success', message: 'Project imported and saved locally.' }); }).catch((error) => setNotice({ type: 'error', message: message(error) })); },
+    importProject: (file) => { readProject(file).then((imported) => { setHistory((current) => ({ past: [...current.past, current.present].slice(-50), present: normalizeLibrary(imported), future: [] })); setSelectedRoleId(null); setNotice({ type: 'success', message: 'Project imported and saved locally.' }); }).catch((error) => setNotice({ type: 'error', message: message(error) })); },
     dismissNotice: () => setNotice(null),
   }), [chart, commit, library, updateActiveChart]);
 

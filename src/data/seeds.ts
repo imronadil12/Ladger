@@ -1,8 +1,23 @@
-import type { Chart, Company, Connection, Library, Role, RoleKind } from '../types';
+import type { Chart, ChartLayoutSettings, Company, Connection, Library, Role, RoleKind } from '../types';
 
 const W = 1190.55;
 const H = 841.89;
 const now = '2026-09-03T00:00:00.000Z';
+
+export const DEFAULT_LAYOUT_SETTINGS: Record<'bbs' | 'sfc', ChartLayoutSettings> = {
+  bbs: {
+    horizontalGap: 24,
+    verticalGap: 55,
+    staffGap: 17,
+    staffTopGap: 36,
+  },
+  sfc: {
+    horizontalGap: 18,
+    verticalGap: 55,
+    staffGap: 15,
+    staffTopGap: 30,
+  },
+};
 
 const role = (
   id: string,
@@ -140,8 +155,8 @@ export const companies: Company[] = [
 ];
 
 export const charts: Chart[] = [
-  { id: 'chart-bbs', name: 'BBS Organizational Structure', companyId: 'company-bbs', templateId: 'bbs', page: { width: W, height: H }, roles: bbsRoles, connections: bbsConnections, updatedAt: now },
-  { id: 'chart-sfc', name: 'SFC Organizational Structure', companyId: 'company-sfc', templateId: 'sfc', page: { width: W, height: H }, roles: sfcRoles, connections: sfcConnections, updatedAt: now },
+  { id: 'chart-bbs', name: 'BBS Organizational Structure', companyId: 'company-bbs', templateId: 'bbs', page: { width: W, height: H }, roles: bbsRoles, connections: bbsConnections, layout: DEFAULT_LAYOUT_SETTINGS.bbs, updatedAt: now },
+  { id: 'chart-sfc', name: 'SFC Organizational Structure', companyId: 'company-sfc', templateId: 'sfc', page: { width: W, height: H }, roles: sfcRoles, connections: sfcConnections, layout: DEFAULT_LAYOUT_SETTINGS.sfc, updatedAt: now },
 ];
 
 export const seedLibrary: Library = { version: 1, activeChartId: 'chart-sfc', companies, charts };

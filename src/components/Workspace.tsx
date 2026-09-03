@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import {
   AlignHorizontalSpaceAround, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Building2, Check, ChevronDown,
   Download, FileArchive, FileImage, FilePlus2, ImagePlus, LayoutTemplate, MoreHorizontal, Plus,
-  Redo2, RotateCcw, Save, Settings2, Trash2, Undo2, Upload, Users, ZoomIn, ZoomOut,
+  Redo2, RotateCcw, Save, Settings2, Sliders, Trash2, Undo2, Upload, Users, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import type { Branding, Chart, Company, Library, Role, RoleKind, WorkspaceActions } from '../types';
+import { DEFAULT_LAYOUT_SETTINGS } from '../data/seeds';
 
 export interface WorkspaceProps {
   library: Library;
@@ -133,6 +134,14 @@ const kinds: RoleKind[] = ['ceo', 'commissioner', 'executive', 'manager', 'staff
 
 function PositionInspector({ role, chart, actions }: { role: Role; chart: Chart; actions: WorkspaceActions }) {
   const parentIds = chart.connections.filter((connection) => connection.targetId === role.id).map((connection) => connection.sourceId);
+  const parentId = chart.connections.find((connection) => connection.targetId === role.id)?.sourceId ?? null;
+  const siblings = chart.roles
+    .filter((item) => (chart.connections.find((connection) => connection.targetId === item.id)?.sourceId ?? null) === parentId)
+    .sort((a, b) => a.order - b.order || a.x - b.x);
+  const siblingIndex = siblings.findIndex((item) => item.id === role.id);
+  const isFirst = siblingIndex <= 0;
+  const isLast = siblingIndex >= siblings.length - 1;
+
   return <>
     <section className="inspector-section"><div className="section-title"><span>Position</span><small>{role.kind}</small></div>
       <CommitInput label="Title and line breaks" value={(role.lines?.length ? role.lines : [role.title]).join('\n')} multiline onCommit={(value) => { const lines = value.split('\n').map((line) => line.trim()).filter(Boolean); if (lines.length) actions.updateRole(role.id, { title: lines.join(' '), lines }); }} />
@@ -140,13 +149,131 @@ function PositionInspector({ role, chart, actions }: { role: Role; chart: Chart;
       <div className="inline-fields"><CommitInput label="Font" value={role.fontSize} type="number" min={7} max={32} step={.25} suffix="pt" onCommit={(value) => actions.updateRole(role.id, { fontSize: asNumber(value, role.fontSize) })} /><span /></div>
     </section>
     <section className="inspector-section"><div className="section-title"><span>Reports to</span><small>{parentIds.length || 'None'}</small></div><div className="parent-list">{chart.roles.filter((item) => item.id !== role.id).map((item) => <label key={item.id}><input type="checkbox" checked={parentIds.includes(item.id)} onChange={(event) => actions.setParents(role.id, event.target.checked ? [...parentIds, item.id] : parentIds.filter((id) => id !== item.id))} /><span>{item.title}</span></label>)}</div></section>
-    <section className="inspector-section"><div className="section-title"><span>Placement</span><small>Page units</small></div><div className="placement-grid">
-      <CommitInput label="X" value={Math.round(role.x)} type="number" onCommit={(value) => actions.updateRole(role.id, { x: asNumber(value, role.x) })} />
-      <CommitInput label="Y" value={Math.round(role.y)} type="number" onCommit={(value) => actions.updateRole(role.id, { y: asNumber(value, role.y) })} />
-      <CommitInput label="Width" value={Math.round(role.width)} type="number" min={40} onCommit={(value) => actions.updateRole(role.id, { width: asNumber(value, role.width) })} />
-      <CommitInput label="Height" value={Math.round(role.height)} type="number" min={20} onCommit={(value) => actions.updateRole(role.id, { height: asNumber(value, role.height) })} />
-    </div><div className="nudge-row"><IconButton label="Move left" onClick={() => actions.updateRole(role.id, { x: role.x - 5 })}><ArrowLeft size={15} /></IconButton><IconButton label="Move up" onClick={() => actions.updateRole(role.id, { y: role.y - 5 })}><ArrowUp size={15} /></IconButton><IconButton label="Move down" onClick={() => actions.updateRole(role.id, { y: role.y + 5 })}><ArrowDown size={15} /></IconButton><IconButton label="Move right" onClick={() => actions.updateRole(role.id, { x: role.x + 5 })}><ArrowRight size={15} /></IconButton></div></section>
-    <section className="inspector-actions"><button className="button secondary" type="button" onClick={() => actions.addRole(role.id)}><Plus size={15} /> Add report</button><div><IconButton label="Move earlier" onClick={() => actions.reorderRole(role.id, -1)}><ArrowUp size={15} /></IconButton><IconButton label="Move later" onClick={() => actions.reorderRole(role.id, 1)}><ArrowDown size={15} /></IconButton><IconButton label="Delete position" onClick={() => actions.deleteRole(role.id)}><Trash2 size={15} /></IconButton></div></section>
+    <section className="inspector-section">
+      <div className="section-title"><span>Order</span><small>{siblings.length > 1 ? `#${siblingIndex + 1} of ${siblings.length}` : 'Single'}</small></div>
+      <div className="order-control-bar">
+        <button className="button secondary order-btn" type="button" disabled={isFirst} onClick={() => actions.reorderRole(role.id, -1)} title="Move position earlier">
+          <ArrowLeft size={14} /> Earlier
+        </button>
+        <button className="button secondary order-btn" type="button" disabled={isLast} onClick={() => actions.reorderRole(role.id, 1)} title="Move position later">
+          Later <ArrowRight size={14} />
+        </button>
+      </div>
+    </section>
+    <section className="inspector-actions">
+      <button className="button secondary" type="button" onClick={() => actions.addRole(role.id)}><Plus size={15} /> Add report</button>
+      <div>
+        <IconButton label="Move earlier" disabled={isFirst} onClick={() => actions.reorderRole(role.id, -1)}><ArrowUp size={15} /></IconButton>
+        <IconButton label="Move later" disabled={isLast} onClick={() => actions.reorderRole(role.id, 1)}><ArrowDown size={15} /></IconButton>
+        <IconButton label="Delete position" onClick={() => actions.deleteRole(role.id)}><Trash2 size={15} /></IconButton>
+      </div>
+    </section>
+  </>;
+}
+
+function RangeControl({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  suffix = 'pt',
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+}) {
+  return <div className="gap-control">
+    <div className="gap-control-header">
+      <span>{label}</span>
+      <span className="gap-value-badge">{Math.round(value)} {suffix}</span>
+    </div>
+    <div className="gap-slider-row">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="gap-slider"
+        aria-label={label}
+      />
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={Math.round(value)}
+        onChange={(e) => {
+          const val = Number(e.target.value);
+          if (Number.isFinite(val)) onChange(val);
+        }}
+        className="gap-number-input"
+        aria-label={`${label} numeric`}
+      />
+    </div>
+  </div>;
+}
+
+function LayoutInspector({ chart, actions }: { chart: Chart; actions: WorkspaceActions }) {
+  const layout = chart.layout ?? DEFAULT_LAYOUT_SETTINGS[chart.templateId];
+  return <>
+    <section className="inspector-section">
+      <div className="section-title"><span>Position Spacing</span><small>{chart.templateId.toUpperCase()}</small></div>
+      <RangeControl
+        label="Horizontal Gap"
+        value={layout.horizontalGap}
+        min={8}
+        max={60}
+        step={1}
+        suffix="pt"
+        onChange={(val) => actions.updateLayout({ horizontalGap: val })}
+      />
+      <RangeControl
+        label="Vertical Gap"
+        value={layout.verticalGap}
+        min={25}
+        max={120}
+        step={1}
+        suffix="pt"
+        onChange={(val) => actions.updateLayout({ verticalGap: val })}
+      />
+      <RangeControl
+        label="Staff Gap"
+        value={layout.staffGap}
+        min={4}
+        max={40}
+        step={1}
+        suffix="pt"
+        onChange={(val) => actions.updateLayout({ staffGap: val })}
+      />
+      <RangeControl
+        label="Staff Top Gap"
+        value={layout.staffTopGap}
+        min={15}
+        max={60}
+        step={1}
+        suffix="pt"
+        onChange={(val) => actions.updateLayout({ staffTopGap: val })}
+      />
+    </section>
+    <section className="inspector-section">
+      <div className="section-title"><span>Layout Actions</span><Sliders size={15} /></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button className="button secondary" type="button" onClick={actions.autoLayout} style={{ width: '100%' }}>
+          <AlignHorizontalSpaceAround size={15} /> Re-align chart
+        </button>
+        <button className="button secondary" type="button" onClick={actions.resetLayout} style={{ width: '100%' }}>
+          <RotateCcw size={15} /> Reset gaps to default
+        </button>
+      </div>
+    </section>
   </>;
 }
 
@@ -169,9 +296,36 @@ function BrandInspector({ company, actions }: { company: Company; actions: Works
 }
 
 function Inspector({ chart, company, selectedRoleId, actions }: Pick<WorkspaceProps, 'chart' | 'company' | 'selectedRoleId' | 'actions'>) {
-  const [tab, setTab] = useState<'position' | 'brand'>('position');
+  const [tab, setTab] = useState<'position' | 'layout' | 'brand'>('position');
   const role = chart.roles.find((item) => item.id === selectedRoleId) ?? null;
-  return <aside className="inspector"><div className="inspector-tabs"><button type="button" className={tab === 'position' ? 'active' : ''} onClick={() => setTab('position')}><Users size={15} /> Position</button><button type="button" className={tab === 'brand' ? 'active' : ''} onClick={() => setTab('brand')}><Building2 size={15} /> Brand</button></div><div className="inspector-scroll">{tab === 'brand' ? <BrandInspector company={company} actions={actions} /> : role ? <PositionInspector role={role} chart={chart} actions={actions} /> : <div className="empty-inspector"><span><Users size={21} /></span><h3>Select a position</h3><p>Choose a position from the chart or hierarchy to edit its title and reporting line.</p><button className="button secondary" type="button" onClick={() => actions.addRole()}><Plus size={15} /> Add position</button></div>}</div></aside>;
+
+  useEffect(() => {
+    if (selectedRoleId) setTab('position');
+  }, [selectedRoleId]);
+
+  return <aside className="inspector">
+    <div className="inspector-tabs">
+      <button type="button" className={tab === 'position' ? 'active' : ''} onClick={() => setTab('position')}><Users size={15} /> Position</button>
+      <button type="button" className={tab === 'layout' ? 'active' : ''} onClick={() => setTab('layout')}><Sliders size={15} /> Layout</button>
+      <button type="button" className={tab === 'brand' ? 'active' : ''} onClick={() => setTab('brand')}><Building2 size={15} /> Brand</button>
+    </div>
+    <div className="inspector-scroll">
+      {tab === 'layout' ? (
+        <LayoutInspector chart={chart} actions={actions} />
+      ) : tab === 'brand' ? (
+        <BrandInspector company={company} actions={actions} />
+      ) : role ? (
+        <PositionInspector role={role} chart={chart} actions={actions} />
+      ) : (
+        <div className="empty-inspector">
+          <span><Users size={21} /></span>
+          <h3>Select a position</h3>
+          <p>Choose a position from the chart or hierarchy to edit its title and reporting line.</p>
+          <button className="button secondary" type="button" onClick={() => actions.addRole()}><Plus size={15} /> Add position</button>
+        </div>
+      )}
+    </div>
+  </aside>;
 }
 
 export default function Workspace(props: WorkspaceProps) {

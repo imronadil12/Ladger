@@ -22,12 +22,15 @@ function stackStaffReports(chart: Chart, parentId: string): void {
     .sort((a, b) => a.order - b.order || a.y - b.y);
   if (!reports.length) return;
 
+  const staffTopGap = chart.layout?.staffTopGap ?? STAFF_TOP_GAP;
+  const staffGap = chart.layout?.staffGap ?? STAFF_GAP;
+
   const footerTop = chart.page.height - 96;
   const totalHeight = reports.reduce((sum, role) => sum + role.height, 0);
   const spacingRoom = Math.max(0, footerTop - (parent.y + parent.height) - totalHeight);
-  const topGap = Math.min(STAFF_TOP_GAP, Math.max(6, spacingRoom * 0.42));
+  const topGap = Math.min(staffTopGap, Math.max(6, spacingRoom * 0.42));
   const gap = reports.length > 1
-    ? Math.min(STAFF_GAP, Math.max(4, (spacingRoom - topGap) / (reports.length - 1)))
+    ? Math.min(staffGap, Math.max(4, (spacingRoom - topGap) / (reports.length - 1)))
     : 0;
   let y = parent.y + parent.height + topGap;
 
@@ -107,10 +110,10 @@ export function setRoleParents(chart: Chart, roleId: string, parentIds: string[]
     if (reaches(next, roleId, parentId)) throw new Error('That reporting line would create a cycle.');
     next.connections.push({ id: id('connection'), sourceId: parentId, targetId: roleId });
   }
-  if (unique.length === 1 && roleById(next, roleId)?.kind === 'staff') stackStaffReports(next, unique[0]);
   next.updatedAt = new Date().toISOString();
-  validateChart(next);
-  return next;
+  const arranged = autoLayout(next);
+  validateChart(arranged);
+  return arranged;
 }
 
 export function addRole(chart: Chart, parentId?: string): Chart {
@@ -126,10 +129,10 @@ export function addRole(chart: Chart, parentId?: string): Chart {
   };
   next.roles.push(newRole);
   if (parentId) next.connections.push({ id: id('connection'), sourceId: parentId, targetId: roleId });
-  if (parentId) stackStaffReports(next, parentId);
   next.updatedAt = new Date().toISOString();
-  validateChart(next);
-  return next;
+  const arranged = autoLayout(next);
+  validateChart(arranged);
+  return arranged;
 }
 
 export function removeRole(chart: Chart, roleId: string): Chart {
@@ -147,30 +150,26 @@ export function removeRole(chart: Chart, roleId: string): Chart {
     }
   }
   next.updatedAt = new Date().toISOString();
-  validateChart(next);
-  return next;
+  const arranged = autoLayout(next);
+  validateChart(arranged);
+  return arranged;
 }
 
 export function reorderRole(chart: Chart, roleId: string, direction: -1 | 1): Chart {
   const next = copy(chart);
   const role = next.roles.find((item) => item.id === roleId);
   if (!role) throw new Error('The selected position no longer exists.');
-  const parentId = incoming(next, roleId)[0]?.sourceId;
-  const siblings = next.roles.filter((item) => (incoming(next, item.id)[0]?.sourceId ?? null) === (parentId ?? null)).sort((a, b) => a.order - b.order || a.x - b.x);
+  const parentId = incoming(next, roleId)[0]?.sourceId ?? null;
+  const siblings = next.roles.filter((item) => (incoming(next, item.id)[0]?.sourceId ?? null) === parentId).sort((a, b) => a.order - b.order || a.x - b.x);
   const index = siblings.findIndex((item) => item.id === roleId);
   const other = siblings[index + direction];
   if (!other) return chart;
+  siblings.forEach((sibling, i) => { sibling.order = i; });
   const order = role.order;
   role.order = other.order;
   other.order = order;
-  if (parentId && role.kind === 'staff' && other.kind === 'staff') stackStaffReports(next, parentId);
-  else {
-    const x = role.x;
-    role.x = other.x;
-    other.x = x;
-  }
   next.updatedAt = new Date().toISOString();
-  return next;
+  return autoLayout(next);
 }
 
 export function autoLayout(chart: Chart): Chart {
@@ -198,8 +197,12 @@ export function autoLayout(chart: Chart): Chart {
   }
   const maximum = Math.max(0, ...levels.keys());
   const pageMargin = 32;
-  const roleGap = 18;
-  const groupGap = 34;
+  const roleGap = chart.layout?.horizontalGap ?? 18;
+  const groupGap = Math.max(roleGap + 8, Math.round(roleGap * 1.6));
+  const staffGap = chart.layout?.staffGap ?? STAFF_GAP;
+  const staffTopGap = chart.layout?.staffTopGap ?? STAFF_TOP_GAP;
+  const configuredVerticalGap = chart.layout?.verticalGap ?? 55;
+
   const footprintCache = new Map<string, number>();
   const footprintFor = (roleId: string): number => {
     const cached = footprintCache.get(roleId);
@@ -220,13 +223,29 @@ export function autoLayout(chart: Chart): Chart {
   const maximumStaffStack = Math.max(0, ...next.roles.map((parent) => {
     const reports = reportsFor(next, parent.id).filter((role) => stackedStaffIds.has(role.id));
     return reports.length
-      ? STAFF_TOP_GAP + reports.reduce((sum, role) => sum + role.height, 0) + STAFF_GAP * (reports.length - 1)
+      ? staffTopGap + reports.reduce((sum, role) => sum + role.height, 0) + staffGap * (reports.length - 1)
       : 0;
   }));
   const firstY = 66;
-  const preferredLastY = firstY + maximum * 105;
-  const lastY = Math.min(preferredLastY, next.page.height - 96 - maximumStaffStack - deepestHeight);
-  const levelGap = maximum ? Math.max(76, (lastY - firstY) / maximum) : 0;
+
+  let totalLevelHeights = 0;
+  for (let lvl = 0; lvl < maximum; lvl += 1) {
+    const rolesOnLvl = levels.get(lvl) ?? [];
+    totalLevelHeights += Math.max(36, ...rolesOnLvl.map((r) => r.height));
+  }
+  const maxAvailableForGaps = Math.max(0, next.page.height - 96 - firstY - deepestHeight - maximumStaffStack - totalLevelHeights);
+  const maxPossibleVerticalGap = maximum > 0 ? maxAvailableForGaps / maximum : configuredVerticalGap;
+  const effectiveVerticalGap = Math.min(configuredVerticalGap, Math.max(20, maxPossibleVerticalGap));
+
+  const levelYMap = new Map<number, number>();
+  let currentLevelY = firstY;
+  for (let lvl = 0; lvl <= maximum; lvl += 1) {
+    levelYMap.set(lvl, currentLevelY);
+    const rolesOnLvl = levels.get(lvl) ?? [];
+    const maxH = Math.max(36, ...rolesOnLvl.map((r) => r.height));
+    currentLevelY += maxH + effectiveVerticalGap;
+  }
+
   for (const [level, roles] of [...levels.entries()].sort(([a], [b]) => a - b)) {
     const clusterMap = new Map<string, { parentIds: string[]; roles: Role[] }>();
     for (const role of roles) {
@@ -273,7 +292,7 @@ export function autoLayout(chart: Chart): Chart {
       cluster.roles.forEach((role, index) => {
         const cellWidth = footprintFor(role.id) * scale;
         role.x = x + (cellWidth - role.width) / 2;
-        role.y = firstY + level * levelGap;
+        role.y = levelYMap.get(level) ?? (firstY + level * effectiveVerticalGap);
         role.order = index;
         x += cellWidth + scaledRoleGap;
       });

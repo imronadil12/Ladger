@@ -25,6 +25,12 @@ export interface Branding {
   footerRight: string[];
 }
 export interface Company { id: string; name: string; shortName: string; branding: Branding }
+export interface ChartLayoutSettings {
+  horizontalGap: number;
+  verticalGap: number;
+  staffGap: number;
+  staffTopGap: number;
+}
 export interface Chart {
   id: string;
   name: string;
@@ -34,6 +40,7 @@ export interface Chart {
   roles: Role[];
   connections: Connection[];
   updatedAt: string;
+  layout?: ChartLayoutSettings;
 }
 export interface Library {
   version: 1;
@@ -53,6 +60,8 @@ export interface WorkspaceActions {
   setParents: (id: string, parentIds: string[]) => void;
   reorderRole: (id: string, direction: -1 | 1) => void;
   autoLayout: () => void;
+  updateLayout: (patch: Partial<ChartLayoutSettings>) => void;
+  resetLayout: () => void;
   updateBranding: (patch: Partial<Branding>) => void;
   renameCompany: (name: string) => void;
   undo: () => void;
