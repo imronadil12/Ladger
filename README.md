@@ -1,56 +1,121 @@
-# Org Chart Studio
+# Org Chart Studio (Ladger)
 
-One local app for creating, editing, saving, and exporting the SFC and BBS
-organizational charts.
+A high-precision corporate organizational chart studio built for creating, styling, auto-arranging, and exporting publication-grade organizational structures in vector-accurate A3 landscape.
 
-## Run the app
+Includes preconfigured, brand-compliant templates for **BBS** (Forest Green & Gold) and **SFC** (Burgundy & Gold), complete with custom branding, executive hierarchy bands, stacked staff reporting lines, and print-ready export pipelines.
 
-```bash
-npm install
-npm run dev -- --port 4173
+---
+
+## ✨ Features
+
+### 📐 Precision Vector Layout Engine
+- **Automated Hierarchy Arrangement**: Auto-calculates multi-tier cluster distributions, avoiding collisions while preserving subtree groupings.
+- **Vertical Middle Centering**: The entire organizational chart is centered dynamically in the vertical middle of the page with equal top and bottom margins.
+- **Consistent Container Metrics**: Standardized padding across all positions, unified box heights based on line count, and a minimum title container width of 200pt.
+- **Staff Reporting Alignment**: Stacked staff roles indented under managers with exact 24pt horizontal arrow connectors and 24pt right margins.
+- **Non-Contact Manager Connectors**: Connector spines initiate 8pt below manager containers, maintaining pristine separation consistent with executive bands.
+
+### 🌳 Interactive Hierarchy Tree & Outline
+- **Nested Tree Navigation**: Visual left-panel hierarchy with indentation, expandable/collapsible branches, and subordinate counters.
+- **Real-Time Search & Filter**: Instantly filter positions across large multi-department charts.
+- **Quick-Add Subordinates**: Add direct reports directly from the tree with a single click.
+
+### ⌨️ Modern Canvas & Keyboard Controls
+- **Keyboard Undo & Redo**: Full history stack accessible via `⌘Z` / `⌘⇧Z` (macOS) and `Ctrl+Z` / `Ctrl+Y` (Windows/Linux), safely respecting active text input fields.
+- **Scroll-to-Zoom**: Smooth zooming using mouse wheel or trackpad pinch gestures with normalized sensitivity.
+- **Magnetic 100% Snap**: Zoom snaps cleanly to 100% when passing within ±4% threshold; click the zoom readout to toggle directly between 100% and fit.
+
+### 🖨️ High-Resolution Vector & Print Exports
+- **A3 Landscape PDF**: Crisp, vector-rendered A3 PDF output (1190.55 × 841.89 pt) adhering to professional corporate standards.
+- **300 DPI Ultra-HD PNG**: High-resolution bitmap export (4961 × 3508 px) generated via direct SVG-to-Canvas rasterization.
+- **Editable Project Backups**: Save and import complete workspace projects as `.orgchart.json` files.
+- **Local Autosave**: Automatic local persistence through IndexedDB with zero cloud dependency.
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [npm](https://www.npmjs.com/)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/imronadil12/Ladger.git
+   cd Ladger
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Launch the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open `http://127.0.0.1:5173/` in your browser.
+
+---
+
+## 🛠️ Available Scripts
+
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Start the local Vite development server with hot module replacement |
+| `npm run build` | Compile TypeScript and bundle production assets with Vite |
+| `npm run preview` | Locally preview the production build |
+| `npm run lint` | Run ESLint across all TypeScript and React source files |
+| `npm run typecheck` | Run `tsc -b` to verify strict TypeScript type integrity |
+
+---
+
+## 📊 Default Layout Settings
+
+| Setting | Default Value | Description |
+| :--- | :--- | :--- |
+| **Title Font Size** | `16 pt` | Uniform typography font size across all positions |
+| **Horizontal Gap** | `24 pt` | Horizontal separation between sibling positions |
+| **Vertical Gap** | `48 pt` | Vertical separation between hierarchy tiers |
+| **Staff Gap** | `16 pt` | Vertical gap between stacked staff cards |
+| **Min Container Width** | `200 pt` | Enforced minimum width for executive and manager cards |
+| **Arrow Connector Length** | `24 pt` | Exact length from vertical spine to staff card |
+
+---
+
+## 📁 Project Architecture
+
+```
+Ladger/
+├── public/
+│   ├── assets/              # Logos, watermarks, and brand artwork
+│   └── favicon.svg
+├── src/
+│   ├── components/
+│   │   ├── Workspace.tsx    # Workbench UI, hierarchy tree, canvas, and inspector
+│   │   └── ...
+│   ├── data/
+│   │   └── seeds.ts         # Approved BBS & SFC seed hierarchies and default settings
+│   ├── lib/
+│   │   ├── chart.ts         # Graph theory algorithms, auto-layout, and tree mutations
+│   │   ├── export.ts        # PDF (jsPDF) & 300 DPI PNG export pipelines
+│   │   ├── render.ts        # SVG generator for orthogonal paths, connectors & roles
+│   │   ├── role-layout.ts   # Typography fitting, standardized metrics & geometry
+│   │   └── storage.ts       # IndexedDB persistence and JSON import/export
+│   ├── types.ts             # TypeScript interfaces for charts, roles, and branding
+│   ├── App.tsx              # Root application state, keyboard shortcuts & history
+│   ├── main.tsx             # Entry point
+│   └── styles.css           # Workspace styling & design system tokens
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
 ```
 
-Open `http://127.0.0.1:4173/`. The former BBS URL, `/bbs.html`, redirects to the
-BBS chart inside the app.
+---
 
-## Current features
+## 📄 License
 
-- Chart library with the approved **SFC** and **BBS** templates.
-- Live hierarchy and A3 landscape page preview.
-- Position titles, explicit line breaks, styles, reporting relationships,
-  sibling order, placement, and dimensions.
-- Add and remove positions, with descendants moved to the removed position's
-  parent. Circular reporting lines are rejected.
-- Company name, colors, logo, logo clear space, watermark, footer, and image
-  placement controls.
-- Undo, redo, automatic arrangement, and local autosave through IndexedDB.
-- Editable `.orgchart.json` project backup and import.
-- Live **300 DPI PNG** and **A3 PDF** exports generated from the current chart.
-
-The BBS template retains its 60 mm logo with 10 mm clear space, centered
-watermark, forest-green and gold palette, 20 roles, and approved hierarchy. The
-SFC template retains its 21 roles, burgundy and gold design, and shared director
-reporting structure.
-
-## Validation
-
-```bash
-npm run typecheck
-npm run lint
-npm run build
-```
-
-## Project structure
-
-- `src/data/seeds.ts` — approved SFC and BBS templates.
-- `src/lib/chart.ts` — graph validation and immutable chart operations.
-- `src/lib/render.ts` — shared SVG renderer for preview and exports.
-- `src/lib/storage.ts` — local autosave and project-file validation.
-- `src/lib/export.ts` — 300 DPI PNG and A3 PDF generation.
-- `src/components/Workspace.tsx` — chart library, canvas, and inspector.
-- `reference/` — the previous standalone HTML files retained for visual
-  comparison.
-- `scripts/` and `output/` — prior standalone builders and their generated files.
-
-The app runtime uses assets under `public/assets/`; it does not depend on files
-in Downloads or `tmp`.
+This project is proprietary and confidential. All rights reserved.
