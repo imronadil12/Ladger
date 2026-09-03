@@ -15,10 +15,10 @@ Includes preconfigured, brand-compliant templates for **BBS** (Forest Green & Go
 - **Staff Reporting Alignment**: Stacked staff roles indented under managers with exact 24pt horizontal arrow connectors and 24pt right margins.
 - **Non-Contact Manager Connectors**: Connector spines initiate 8pt below manager containers, maintaining pristine separation consistent with executive bands.
 
-### 🌳 Interactive Hierarchy Tree & Outline
-- **Nested Tree Navigation**: Visual left-panel hierarchy with indentation, expandable/collapsible branches, and subordinate counters.
-- **Real-Time Search & Filter**: Instantly filter positions across large multi-department charts.
-- **Quick-Add Subordinates**: Add direct reports directly from the tree with a single click.
+### 📋 Live Hierarchy Outline
+- **Visual Position List**: Streamlined left-panel hierarchy displaying all positions with hierarchy depth indentation and role style indicators.
+- **Position Selection**: Instant selection and inspection of any role directly from the hierarchy outline.
+- **Top-Level Position Addition**: Quick addition of root positions directly from the outline header.
 
 ### ⌨️ Modern Canvas & Keyboard Controls
 - **Keyboard Undo & Redo**: Full history stack accessible via `⌘Z` / `⌘⇧Z` (macOS) and `Ctrl+Z` / `Ctrl+Y` (Windows/Linux), safely respecting active text input fields.
